@@ -105,6 +105,16 @@ const CATEGORY_EMOJIS = {
   Otros: "📌",
 };
 
+const CATEGORY_META = {
+  Comida: { icon: "🍔", color: "#f59e0b" },
+  Casa: { icon: "🏠", color: "#3b82f6" },
+  Transporte: { icon: "🚗", color: "#6366f1" },
+  Ocio: { icon: "🎮", color: "#ec4899" },
+  Salud: { icon: "💊", color: "#10b981" },
+  Suscripciones: { icon: "📺", color: "#8b5cf6" },
+  Otros: { icon: "🧾", color: "#6b7280" },
+};
+
 function Badge({ label }) {
   return (
     <span
@@ -270,12 +280,15 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
                 paddingAngle={2}
                 stroke="none"
               >
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={CATEGORY_COLORS?.[entry.name] ?? `hsl(${index * 47 % 360}, 70%, 55%)`}
-                  />
-                ))}
+                {chartData.map((entry, index) => {
+                  const meta = CATEGORY_META[entry.name];
+                  return (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={meta?.color ?? `hsl(${(index * 47) % 360}, 70%, 55%)`}
+                    />
+                  );
+                })}
               </Pie>
               <Tooltip formatter={(value, name) => [eur(value), name]} />
             </PieChart>
@@ -339,10 +352,11 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
       {/* Breakdown por categoría */}
       {chartView === "categories" && (
         <div className="mt-4 space-y-2">
-          {expensesByCategory.map((c) => {
+          {expensesByCategory.filter(c => c.value > 1).map((c) => {
             const pct = totals.expense
               ? Math.round((c.value / totals.expense) * 100)
               : 0;
+            const meta = CATEGORY_META[c.name] ?? { icon: "📁", color: "#9ca3af" };
 
             return (
               <div
@@ -350,6 +364,12 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
                 className="flex items-center justify-between rounded-2xl bg-white/70 dark:bg-white/5 px-3 py-2 text-sm"
               >
                 <div className="flex items-center gap-2">
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-sm"
+                    style={{ backgroundColor: meta.color + "22" }}
+                  >
+                    {meta.icon}
+                  </span>
                   <span className="font-bold">{c.name}</span>
                   <span className="text-xs text-neutral-500 dark:text-neutral-300">
                     {pct}%
@@ -468,9 +488,21 @@ export default function App() {
       map[cat] = (map[cat] || 0) + it.amount;
     }
 
-    return Object.entries(map)
+    let arr = Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
+
+    // Agrupar en "Otros" si hay más de 6 categorías
+    if (arr.length > 6) {
+      const top = arr.slice(0, 5);
+      const rest = arr.slice(5);
+      const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
+      return [
+        ...top,
+        { name: "Otros", value: otrosValue }
+      ].filter(c => c.value > 0);
+    }
+    return arr;
   }, [monthData.items]);
 
   function addItem() {
