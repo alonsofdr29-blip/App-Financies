@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+
+const THEME_KEY = "finanzas_theme";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import "./index.css";
 import {
@@ -77,16 +79,16 @@ const SUGGESTED_CATEGORIES = {
 
 // Colores por categoría (no pasa nada si no existe: cae a neutro)
 const CATEGORY_BADGES = {
-  Comida: { bg: "bg-amber-50", ring: "ring-amber-200", text: "text-amber-800" },
-  Casa: { bg: "bg-blue-50", ring: "ring-blue-200", text: "text-blue-800" },
-  Transporte: { bg: "bg-indigo-50", ring: "ring-indigo-200", text: "text-indigo-800" },
-  Ocio: { bg: "bg-pink-50", ring: "ring-pink-200", text: "text-pink-800" },
-  Salud: { bg: "bg-emerald-50", ring: "ring-emerald-200", text: "text-emerald-800" },
-  Suscripciones: { bg: "bg-purple-50", ring: "ring-purple-200", text: "text-purple-800" },
-  Sueldo: { bg: "bg-green-50", ring: "ring-green-200", text: "text-green-800" },
-  Extra: { bg: "bg-lime-50", ring: "ring-lime-200", text: "text-lime-800" },
-  Ventas: { bg: "bg-teal-50", ring: "ring-teal-200", text: "text-teal-800" },
-  Regalo: { bg: "bg-rose-50", ring: "ring-rose-200", text: "text-rose-800" },
+  Comida: { bg: "bg-amber-50 dark:bg-neutral-700", ring: "ring-amber-200", text: "text-amber-800" },
+  Casa: { bg: "bg-blue-50 dark:bg-neutral-700", ring: "ring-blue-200", text: "text-blue-800" },
+  Transporte: { bg: "bg-indigo-50 dark:bg-neutral-700", ring: "ring-indigo-200", text: "text-indigo-800" },
+  Ocio: { bg: "bg-pink-50 dark:bg-neutral-700", ring: "ring-pink-200", text: "text-pink-800" },
+  Salud: { bg: "bg-emerald-50 dark:bg-neutral-700", ring: "ring-emerald-200", text: "text-emerald-800" },
+  Suscripciones: { bg: "bg-purple-50 dark:bg-neutral-700", ring: "ring-purple-200", text: "text-purple-800" },
+  Sueldo: { bg: "bg-green-50 dark:bg-neutral-700", ring: "ring-green-200", text: "text-green-800" },
+  Extra: { bg: "bg-lime-50 dark:bg-neutral-700", ring: "ring-lime-200", text: "text-lime-800" },
+  Ventas: { bg: "bg-teal-50 dark:bg-neutral-700", ring: "ring-teal-200", text: "text-teal-800" },
+  Regalo: { bg: "bg-rose-50 dark:bg-neutral-700", ring: "ring-rose-200", text: "text-rose-800" },
 };
 
 const CATEGORY_EMOJIS = {
@@ -104,27 +106,16 @@ const CATEGORY_EMOJIS = {
 };
 
 function Badge({ label }) {
-  const style = CATEGORY_BADGES[label] || {
-    bg: "bg-neutral-50",
-    ring: "ring-neutral-200",
-    text: "text-neutral-800",
-  };
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1 ${style.bg} ${style.ring} ${style.text}`}
-      aria-label={label}
+      className={[
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1",
+        "bg-neutral-50 ring-neutral-200 text-neutral-800",
+        "dark:bg-white/10 dark:ring-white/10 dark:text-neutral-100",
+      ].join(" ")}
     >
-      {typeof CATEGORY_EMOJIS !== "undefined" && CATEGORY_EMOJIS[label] ? (
-        <>
-          <span className="text-sm leading-none">{CATEGORY_EMOJIS[label]}</span>
-          <span className="sr-only">{label}</span>
-        </>
-      ) : (
-        <>
-          <Tag className="h-3 w-3 opacity-70" />
-          {label}
-        </>
-      )}
+      <span className="text-sm leading-none">{CATEGORY_EMOJIS[label] ?? "🏷️"}</span>
+      {label}
     </span>
   );
 }
@@ -133,9 +124,15 @@ function Button({ children, onClick, variant = "primary", type = "button", class
   const base =
     "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
-    primary: "bg-neutral-900 text-white hover:bg-neutral-800 shadow-[0_10px_25px_rgba(0,0,0,0.18)]",
-    soft: "bg-white text-neutral-900 hover:bg-neutral-50 ring-1 ring-neutral-200 shadow-sm",
-    ghost: "bg-transparent text-neutral-900 hover:bg-neutral-100",
+    primary:
+      "bg-neutral-900 text-white hover:bg-neutral-800 " +
+      "dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90",
+    soft:
+      "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 " +
+      "dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15",
+    ghost:
+      "bg-transparent text-neutral-900 hover:bg-neutral-100 " +
+      "dark:text-neutral-100 dark:hover:bg-white/10",
     danger: "bg-red-600 text-white hover:bg-red-500",
   };
   return (
@@ -147,10 +144,12 @@ function Button({ children, onClick, variant = "primary", type = "button", class
 
 function Segmented({ value, onChange }) {
   return (
-    <div className="grid grid-cols-2 rounded-2xl bg-neutral-100 p-1">
+    <div className="grid grid-cols-2 rounded-2xl bg-neutral-100 p-1 dark:bg-white/10">
       <button
         className={`rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-          value === "expense" ? "bg-white shadow-sm" : "text-neutral-600 hover:text-neutral-900"
+          value === "expense"
+            ? "bg-white shadow-sm dark:bg-white/15 dark:text-neutral-100"
+            : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
         }`}
         onClick={() => onChange("expense")}
         type="button"
@@ -159,7 +158,9 @@ function Segmented({ value, onChange }) {
       </button>
       <button
         className={`rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-          value === "income" ? "bg-white shadow-sm" : "text-neutral-600 hover:text-neutral-900"
+          value === "income"
+            ? "bg-white shadow-sm dark:bg-white/15 dark:text-neutral-100"
+            : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
         }`}
         onClick={() => onChange("income")}
         type="button"
@@ -173,14 +174,14 @@ function Segmented({ value, onChange }) {
 function Input({ label, value, onChange, placeholder, type = "text", right }) {
   return (
     <label className="block">
-      <div className="mb-1 text-xs font-semibold text-neutral-600">{label}</div>
+      <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">{label}</div>
       <div className="relative">
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200"
+          className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:placeholder:text-neutral-400 dark:focus:ring-white/15"
         />
         {right ? <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">{right}</div> : null}
       </div>
@@ -190,7 +191,15 @@ function Input({ label, value, onChange, placeholder, type = "text", right }) {
 
 function SmallCard({ children, className = "" }) {
   return (
-    <div className={`rounded-3xl border border-neutral-200/70 bg-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur ${className}`}>
+    <div
+      className={[
+        "rounded-3xl border shadow-sm",
+        "border-neutral-200 bg-white",
+        "dark:border-white/10 dark:bg-white/5 dark:shadow-none",
+        "backdrop-blur-xl",
+        className,
+      ].join(" ")}
+    >
       {children}
     </div>
   );
@@ -223,15 +232,15 @@ function importJSON(file, setDb) {
 
 function ChartCard({ pieData, totals, balanceAccent, eur }) {
   return (
-    <SmallCard className="mt-4 p-4 lg:py-3">
+    <SmallCard className="p-4 lg:py-3">
       <div>
-        <div className="text-xs font-semibold text-neutral-500">Gráfico</div>
-        <div className="text-base font-extrabold text-neutral-900">
+        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Gráfico</div>
+        <div className="text-base font-extrabold text-neutral-900 dark:text-neutral-50">
           Ingresos vs Gastos
         </div>
       </div>
 
-      <div className="mt-4 rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 p-4">
+      <div className="rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 p-4">
         <div className="relative mx-auto aspect-square w-full max-w-[320px] lg:max-w-[280px]">
 
           <ResponsiveContainer width="100%" height="100%">
@@ -265,18 +274,19 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {pieData.map((x, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold ring-1 ring-neutral-200"
+              className="flex items-center gap-2 rounded-full bg-white ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 px-3 py-1 text-xs font-semibold"
             >
               <div
                 className="h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: x.color }}
               />
-              <div className="text-neutral-700">{x.name}:</div>
-              <div className="font-extrabold text-neutral-900">
+              <div className="text-neutral-700 dark:text-neutral-300">{x.name}:</div>
+                <div className="text-neutral-700 dark:text-neutral-200">{x.name}:</div>
+              <div className="font-extrabold text-neutral-900 dark:text-neutral-50">
                 {eur(x.value)}
               </div>
             </div>
@@ -289,6 +299,9 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
 
 
 export default function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem(THEME_KEY) === "dark";
+  });
   const todayKey = monthKeyFromDate(new Date());
 
   const [db, setDb] = useState(() => loadDB());
@@ -306,6 +319,17 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   useEffect(() => saveDB(db), [db]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add("dark");
+      localStorage.setItem(THEME_KEY, "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem(THEME_KEY, "light");
+    }
+  }, [darkMode]);
 
   function ensureMonth(m) {
     setDb((prev) => {
@@ -402,12 +426,267 @@ export default function App() {
   }
 
   const balanceAccent =
-    totals.balance > 0 ? "text-green-700" : totals.balance < 0 ? "text-red-700" : "text-neutral-900";
+    totals.balance > 0
+      ? "text-green-700 dark:text-green-400"
+      : totals.balance < 0
+      ? "text-red-700 dark:text-red-400"
+      : "text-neutral-900 dark:text-neutral-100";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-50 via-neutral-50 to-neutral-100">
-      <div className="mx-auto w-full px-4 py-4">
-        <div className="text-center p-8">App inicializada. Si quieres, restauraré el JSX original paso a paso.</div>
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
+      <div className="pointer-events-none fixed inset-0 dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(16,185,129,0.14),transparent_60%)]" />
+      <div className="relative">
+        {/* App shell */}
+        <div className="mx-auto w-full px-4 py-4 lg:px-8 lg:py-4 lg:h-[calc(100vh-24px)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-neutral-900 text-white shadow-sm">
+                <Wallet className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Mi dinero</div>
+                <div className="text-lg font-extrabold text-neutral-900 dark:text-white">Finanzas</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button variant="soft" onClick={() => exportJSON(db)} className="px-3">
+                <Download className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) importJSON(f, setDb);
+                  e.target.value = "";
+                }}
+              />
+              <Button variant="soft" onClick={() => fileInputRef.current?.click()} className="px-3">
+                <Upload className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="soft"
+                onClick={() => setDarkMode((v) => !v)}
+                className="px-3"
+                title="Cambiar modo"
+              >
+                {darkMode ? "🌙" : "☀️"}
+              </Button>
+            </div>
+          </div>
+
+          {/* DASHBOARD PC */}
+          <div className="mt-4 grid gap-4 lg:grid-cols-12 lg:h-[calc(100vh-120px)] items-start">
+            {/* IZQUIERDA */}
+            <div className="lg:col-span-5 lg:h-full min-h-0">
+              <div className="space-y-4 lg:h-full lg:overflow-auto lg:pr-2 min-h-0">
+                {/* AQUÍ: tu tarjeta de Mes + Insight + tus tarjetas Ingresos/Gastos/Balance */}
+
+                {/* Month selector */}
+                <SmallCard className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Mes</div>
+                      <div className="capitalize text-base font-extrabold text-neutral-900 dark:text-white">{monthLabel(month)}</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                      <Calendar className="h-4 w-4 text-neutral-500" />
+                      <input
+                        type="month"
+                        value={month}
+                        onChange={(e) => setMonth(e.target.value)}
+                        className="bg-transparent text-sm font-semibold text-neutral-900 outline-none dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-start gap-2 rounded-2xl bg-neutral-100 p-3 dark:bg-white/10 dark:ring-1 dark:ring-white/10">
+                    <Sparkles className="mt-0.5 h-4 w-4 text-neutral-700 dark:text-neutral-200" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold text-neutral-900 dark:text-white">{insights.title}</div>
+                      <div className="text-xs font-medium text-neutral-600 dark:text-neutral-200">{insights.desc}</div>
+                    </div>
+                  </div>
+                </SmallCard>
+
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <SmallCard className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Ingresos</div>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-green-50">
+                        <ArrowUpRight className="h-4 w-4 text-green-700" />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xl font-extrabold text-neutral-900 dark:text-white">{eur(totals.income)}</div>
+                  </SmallCard>
+
+                  <SmallCard className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Gastos</div>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-red-50">
+                        <ArrowDownRight className="h-4 w-4 text-red-700" />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xl font-extrabold text-neutral-900 dark:text-white">{eur(totals.expense)}</div>
+                  </SmallCard>
+
+                  <SmallCard className="col-span-2 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Balance</div>
+                      <div className="text-xs font-bold text-neutral-500 dark:text-neutral-300">Ingresos − Gastos</div>
+                    </div>
+                    <div className={`mt-2 text-2xl font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</div>
+                  </SmallCard>
+
+                  {/* Añadir movimiento debajo del balance */}
+                  <SmallCard className="col-span-2 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Añadir movimiento</div>
+                        <div className="text-base font-extrabold text-neutral-900 dark:text-white">Rápido y simple</div>
+                      </div>
+                      <div className="w-full sm:w-44">
+                        <Segmented value={kind} onChange={setKind} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3">
+                      <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado, Nómina, Netflix…" />
+
+                      <Input
+                        label="Importe"
+                        value={amount}
+                        onChange={setAmount}
+                        placeholder="Ej: 25.50"
+                        type="number"
+                        right={<span className="text-sm font-extrabold text-neutral-500">€</span>}
+                      />
+
+                      <div>
+                        <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-200">Categoría</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(SUGGESTED_CATEGORIES[kind] || []).map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setCategory(c)}
+                              className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition
+                                ${(category || "").trim() === c
+                                  ? "bg-neutral-900 text-white ring-neutral-900 dark:bg-white dark:text-neutral-900 dark:ring-white"
+                                  : "bg-white text-neutral-800 ring-neutral-200 hover:bg-neutral-50 dark:bg-white/5 dark:text-neutral-100 dark:ring-white/10 dark:hover:bg-white/10"
+                                }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-2">
+                          <input
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            placeholder="O escribe otra…"
+                            className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:placeholder:text-neutral-400 dark:focus:ring-white/15 font-semibold"
+                          />
+                        </div>
+                      </div>
+
+                      <Button onClick={addItem} className="py-3">
+                        <Plus className="h-4 w-4" />
+                        Añadir {kind === "income" ? "ingreso" : "gasto"}
+                      </Button>
+                    </div>
+                  </SmallCard>
+                </div>
+
+                {/* END LEFT_CONTENT */}
+              </div>
+            </div>
+
+            {/* DERECHA */}
+            <div className="lg:col-span-7 lg:h-full lg:overflow-hidden min-h-0">
+              <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden min-h-0">
+                {/* 1) Gráfico (fijo) */}
+                <ChartCard pieData={pieData} totals={totals} balanceAccent={balanceAccent} eur={eur} />
+
+                {/** 3) Movimientos */}
+                <SmallCard className="p-4 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden min-h-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Movimientos</div>
+                      <div className="text-base font-extrabold text-neutral-900 dark:text-white">Lista del mes</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-2xl border px-3 py-2 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+                        <input
+                          placeholder="Buscar…"
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          className="w-full bg-transparent text-sm font-semibold outline-none text-neutral-900 placeholder:text-neutral-400 dark:text-white dark:placeholder:text-neutral-400"
+                        />
+                        <Search className="absolute right-3 top-2.5 h-4 w-4 text-neutral-400" />
+                      </div>
+                      <select
+                        value={filterKind}
+                        onChange={(e) => setFilterKind(e.target.value)}
+                        className="rounded-2xl border px-3 py-2 text-sm font-bold outline-none border-neutral-200 bg-white text-neutral-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      >
+                        <option value="all">Todos</option>
+                        <option value="income">Ingresos</option>
+                        <option value="expense">Gastos</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-2 lg:flex-1 lg:overflow-auto lg:pr-2 min-h-0">
+                    <AnimatePresence>
+                      {filteredItems.length === 0 ? (
+                        <div className="rounded-2xl bg-neutral-50 p-4 text-center text-sm text-neutral-500">No hay movimientos</div>
+                      ) : (
+                        filteredItems.map((it) => (
+                          <motion.div
+                            key={it.id}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            className="flex items-center justify-between rounded-3xl border p-4 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)]"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Badge label={it.category} />
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-extrabold text-neutral-900 dark:text-white">{it.name}</div>
+                                <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">{new Date(it.createdAt).toLocaleString("es-ES")}</div>
+                                                            {/* Si la categoría es "Extra" u "Otros" y se muestra como texto simple */}
+                                                            {['Extra', 'Otros'].includes(it.category) && (
+                                                              <div className="text-xs font-bold text-neutral-600 dark:text-neutral-200">{it.category}</div>
+                                                            )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <div className={`font-extrabold ${it.kind === 'income' ? 'text-green-700' : 'text-red-700'}`}>{eur(it.amount)}</div>
+                              <button
+                                onClick={() => removeItem(it.id)}
+                                className="inline-flex items-center justify-center rounded-2xl p-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ))
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </SmallCard>
+              </div>
+            </div>
+          </div>
+
+          
+        </div>
       </div>
     </div>
   );
