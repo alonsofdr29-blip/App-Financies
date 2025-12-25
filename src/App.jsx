@@ -231,13 +231,29 @@ function importJSON(file, setDb) {
 }
 
 function ChartCard({ pieData, totals, balanceAccent, eur }) {
+  // Recibe chartView y expensesByCategory por props o contexto superior
+  // chartView, setChartView, expensesByCategory deben estar en el scope superior
+  const CATEGORY_COLORS = {
+    Comida: "#fbbf24",
+    Casa: "#60a5fa",
+    Transporte: "#818cf8",
+    Ocio: "#f472b6",
+    Salud: "#34d399",
+    Suscripciones: "#a78bfa",
+    Sueldo: "#4ade80",
+    Extra: "#bef264",
+    Ventas: "#5eead4",
+    Regalo: "#fda4af",
+    Otros: "#a3a3a3",
+  };
+
+  const chartData = chartView === "categories" ? expensesByCategory : pieData;
+
   return (
     <SmallCard className="p-4 lg:py-3">
       <div>
         <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Gráfico</div>
-        <div className="text-base font-extrabold text-neutral-900 dark:text-neutral-50">
-          Ingresos vs Gastos
-        </div>
+        {/* ...toggle header ya insertado antes... */}
       </div>
 
       <div className="rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 p-4">
@@ -246,16 +262,19 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={pieData}
+                data={chartData}
                 dataKey="value"
                 nameKey="name"
-                innerRadius="68%"
-                outerRadius="86%"
+                innerRadius="64%"
+                outerRadius="88%"
                 paddingAngle={2}
                 stroke="none"
               >
-                {pieData.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={CATEGORY_COLORS?.[entry.name] ?? `hsl(${index * 47 % 360}, 70%, 55%)`}
+                  />
                 ))}
               </Pie>
               <Tooltip formatter={(value, name) => [eur(value), name]} />
@@ -275,7 +294,7 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {pieData.map((x, i) => (
+          {chartData.map((x, i) => (
             <div
               key={i}
               className="flex items-center gap-2 rounded-full bg-white ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 px-3 py-1 text-xs font-semibold"
@@ -293,10 +312,60 @@ function ChartCard({ pieData, totals, balanceAccent, eur }) {
           ))}
         </div>
       </div>
+
+      <div className="flex items-center gap-2 mt-1">
+        <button
+          onClick={() => setChartView("balance")}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition
+            ${chartView === "balance"
+              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"}
+          `}
+        >
+          Balance
+        </button>
+        <button
+          onClick={() => setChartView("categories")}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition
+            ${chartView === "categories"
+              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"}
+          `}
+        >
+          Categorías
+        </button>
+      </div>
+
+      {/* Breakdown por categoría */}
+      {chartView === "categories" && (
+        <div className="mt-4 space-y-2">
+          {expensesByCategory.map((c) => {
+            const pct = totals.expense
+              ? Math.round((c.value / totals.expense) * 100)
+              : 0;
+
+            return (
+              <div
+                key={c.name}
+                className="flex items-center justify-between rounded-2xl bg-white/70 dark:bg-white/5 px-3 py-2 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{c.name}</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-300">
+                    {pct}%
+                  </span>
+                </div>
+                <div className="font-extrabold">
+                  {eur(c.value)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </SmallCard>
   );
 }
-
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -378,6 +447,7 @@ export default function App() {
     return { title: "Balance a cero", desc: "Ingresos y gastos están igualados. ¡Buen control!" };
   }, [totals]);
 
+
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     return monthData.items.filter((it) => {
@@ -388,6 +458,20 @@ export default function App() {
       return passKind && passQuery;
     });
   }, [monthData.items, query, filterKind]);
+
+  // Gastos agrupados por categoría
+  const expensesByCategory = useMemo(() => {
+    const map = {};
+    for (const it of monthData.items) {
+      if (it.kind !== "expense") continue;
+      const cat = it.category || "Otros";
+      map[cat] = (map[cat] || 0) + it.amount;
+    }
+
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [monthData.items]);
 
   function addItem() {
     const a = clampNumber(amount);
