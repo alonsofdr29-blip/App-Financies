@@ -1,3 +1,77 @@
+  function BudgetRow({ name, emoji, spent, budget, onChange }) {
+    const b = Number(budget || 0);
+    const s = Number(spent || 0);
+
+    const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
+    const remaining = b - s;
+
+    const bar =
+      b <= 0
+        ? "bg-neutral-200 dark:bg-white/10"
+        : pct < 70
+        ? "bg-green-500"
+        : pct < 90
+        ? "bg-amber-500"
+        : "bg-red-500";
+
+    return (
+      <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{emoji}</span>
+              <div className="truncate text-sm font-extrabold">{name}</div>
+            </div>
+            <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+              Gastado: <span className="font-extrabold">{eur(s)}</span>
+              {b > 0 ? (
+                <>
+                  {" "}· Presupuesto: <span className="font-extrabold">{eur(b)}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="w-28 shrink-0">
+            <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-300 mb-1 text-right">
+              {b > 0 ? `${pct}%` : "—"}
+            </div>
+            <input
+              value={String(budget ?? "")}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="€"
+              type="number"
+              className="w-full rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
+            />
+          </div>
+        </div>
+
+        {/* Barra */}
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
+          <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
+        </div>
+
+        {b > 0 && (
+          <div className="mt-2 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+            {remaining >= 0 ? (
+              <>Te quedan <span className="font-extrabold">{eur(remaining)}</span></>
+            ) : (
+              <>Te pasas por <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span></>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+  const spentByCategory = useMemo(() => {
+    const m = {};
+    for (const it of safeMonthData.items) {
+      if (it.kind !== "expense") continue;
+      const cat = it.category || "Otros";
+      m[cat] = (m[cat] || 0) + it.amount;
+    }
+    return m;
+  }, [safeMonthData.items]);
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -400,7 +474,13 @@ export default function App() {
   function ensureMonth(m) {
     setDb((prev) => {
       if (prev.months[m]) return prev;
-      return { ...prev, months: { ...prev.months, [m]: { items: [] } } };
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [m]: { items: [], budgets: {}, budgetTotal: 0 },
+        },
+      };
     });
   }
   useEffect(() => {
@@ -408,7 +488,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
+
   const monthData = db.months[month] || { items: [] };
+  const safeMonthData = {
+    items: monthData.items || [],
+    budgets: monthData.budgets || {},
+    budgetTotal: monthData.budgetTotal || 0,
+  };
 
   const totals = useMemo(() => {
     let income = 0;
@@ -703,6 +789,95 @@ export default function App() {
                         <Plus className="h-4 w-4" />
                         Añadir {kind === "income" ? "ingreso" : "gasto"}
                       </Button>
+                    </div>
+                  </SmallCard>
+
+                  {/* Tarjeta de presupuesto */}
+                  <SmallCard className="col-span-2 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Presupuesto</div>
+                        <div className="text-base font-extrabold text-neutral-900 dark:text-white">Plan vs Real</div>
+                      </div>
+                    </div>
+
+                    {/* Presupuesto total opcional */}
+                    <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-extrabold">Total del mes</div>
+                          <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+                            Gastado: <span className="font-extrabold">{eur(totals.expense)}</span>
+                          </div>
+                        </div>
+
+                        <input
+                          type="number"
+                          placeholder="€"
+                          value={String(safeMonthData.budgetTotal || "")}
+                          onChange={(e) => {
+                            const v = Number(e.target.value || 0);
+                            setDb((prev) => {
+                              const cur = prev.months[month] || { items: [], budgets: {}, budgetTotal: 0 };
+                              return {
+                                ...prev,
+                                months: {
+                                  ...prev.months,
+                                  [month]: { ...cur, budgetTotal: v },
+                                },
+                              };
+                            });
+                          }}
+                          className="w-28 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
+                        />
+                      </div>
+
+                      {/* Barra total */}
+                      {safeMonthData.budgetTotal > 0 && (
+                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
+                          <div
+                            className={
+                              totals.expense / safeMonthData.budgetTotal < 0.7
+                                ? "h-full bg-green-500"
+                                : totals.expense / safeMonthData.budgetTotal < 0.9
+                                ? "h-full bg-amber-500"
+                                : "h-full bg-red-500"
+                            }
+                            style={{ width: `${Math.min(100, Math.round((totals.expense / safeMonthData.budgetTotal) * 100))}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Presupuesto por categorías */}
+                    <div className="mt-3 space-y-2">
+                      {SUGGESTED_CATEGORIES.expense.map((cat) => (
+                        <BudgetRow
+                          key={cat}
+                          name={cat}
+                          emoji={CATEGORY_EMOJIS[cat] ?? "🏷️"}
+                          spent={spentByCategory[cat] || 0}
+                          budget={safeMonthData.budgets?.[cat] ?? ""}
+                          onChange={(val) => {
+                            setDb((prev) => {
+                              const cur = prev.months[month] || { items: [], budgets: {}, budgetTotal: 0 };
+                              const nextBudgets = { ...(cur.budgets || {}) };
+
+                              const num = Number(val);
+                              if (!val || num <= 0) delete nextBudgets[cat];
+                              else nextBudgets[cat] = num;
+
+                              return {
+                                ...prev,
+                                months: {
+                                  ...prev.months,
+                                  [month]: { ...cur, budgets: nextBudgets },
+                                },
+                              };
+                            });
+                          }}
+                        />
+                      ))}
                     </div>
                   </SmallCard>
                 </div>
