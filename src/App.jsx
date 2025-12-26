@@ -533,13 +533,10 @@ export default function App() {
       ? "text-red-700 dark:text-red-400"
       : "text-neutral-900 dark:text-neutral-100";
 
-  // DEBUG: Mostrar estado básico en pantalla para saber si el render llega
-  if (typeof window !== 'undefined') {
-    window.__APP_DEBUG__ = { db, month, monthData, totals, pieData, expensesByCategory };
-  }
-
-  // Mostrar el estado en pantalla para depuración
-  return <h1>Hola mundo</h1>;
+	// DEBUG: Mostrar estado básico en pantalla para saber si el render llega
+	if (typeof window !== 'undefined') {
+		window.__APP_DEBUG__ = { db, month, monthData, totals, pieData, expensesByCategory };
+	}
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
