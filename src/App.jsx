@@ -240,23 +240,7 @@ function importJSON(file, setDb) {
   reader.readAsText(file);
 }
 
-function ChartCard({ pieData, totals, balanceAccent, eur }) {
-  // Recibe chartView y expensesByCategory por props o contexto superior
-  // chartView, setChartView, expensesByCategory deben estar en el scope superior
-  const CATEGORY_COLORS = {
-    Comida: "#fbbf24",
-    Casa: "#60a5fa",
-    Transporte: "#818cf8",
-    Ocio: "#f472b6",
-    Salud: "#34d399",
-    Suscripciones: "#a78bfa",
-    Sueldo: "#4ade80",
-    Extra: "#bef264",
-    Ventas: "#5eead4",
-    Regalo: "#fda4af",
-    Otros: "#a3a3a3",
-  };
-
+function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartView, expensesByCategory }) {
   const chartData = chartView === "categories" ? expensesByCategory : pieData;
 
   return (
@@ -395,6 +379,7 @@ export default function App() {
 
   const [db, setDb] = useState(() => loadDB());
   const [month, setMonth] = useState(todayKey);
+  const [chartView, setChartView] = useState("balance"); // "balance" | "categories"
 
   // Form
   const [kind, setKind] = useState("expense");
@@ -547,6 +532,14 @@ export default function App() {
       : totals.balance < 0
       ? "text-red-700 dark:text-red-400"
       : "text-neutral-900 dark:text-neutral-100";
+
+  // DEBUG: Mostrar estado básico en pantalla para saber si el render llega
+  if (typeof window !== 'undefined') {
+    window.__APP_DEBUG__ = { db, month, monthData, totals, pieData, expensesByCategory };
+  }
+
+  // Mostrar el estado en pantalla para depuración
+  return <h1>Hola mundo</h1>;
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
@@ -726,7 +719,15 @@ export default function App() {
             <div className="lg:col-span-7 lg:h-full lg:overflow-hidden min-h-0">
               <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden min-h-0">
                 {/* 1) Gráfico (fijo) */}
-                <ChartCard pieData={pieData} totals={totals} balanceAccent={balanceAccent} eur={eur} />
+                <ChartCard
+                  pieData={pieData}
+                  totals={totals}
+                  balanceAccent={balanceAccent}
+                  eur={eur}
+                  chartView={chartView}
+                  setChartView={setChartView}
+                  expensesByCategory={expensesByCategory}
+                />
 
                 {/** 3) Movimientos */}
                 <SmallCard className="p-4 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden min-h-0">
