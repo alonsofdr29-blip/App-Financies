@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const THEME_KEY = "finanzas_theme";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import "./index.css";
 import {
@@ -18,6 +17,8 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const THEME_KEY = "finanzas_theme";
 
 const STORAGE_KEY = "finanzas_personales_v2";
 
@@ -63,12 +64,11 @@ function saveDB(db) {
 }
 
 // Paleta más “app moderna”
-const COLORS = {
-  income: "#22c55e",
-  expense: "#ef4444",
-  neutral: "#a3a3a3",
-  card: "#ffffff",
-  bg: "#0b0b0f",
+const CHART_COLORS = {
+  income: "#22c55e",  // verde
+  expense: "#ef4444", // rojo
+  savings: "#3b82f6", // azul
+  neutral: "#6b7280",
 };
 
 // Categorías sugeridas (puedes editarlas)
@@ -78,7 +78,7 @@ const SUGGESTED_CATEGORIES = {
 };
 
 // Colores por categoría (no pasa nada si no existe: cae a neutro)
-const CATEGORY_BADGES = {
+const CATEGORY_STYLES = {
   Comida: { bg: "bg-amber-50 dark:bg-neutral-700", ring: "ring-amber-200", text: "text-amber-800" },
   Casa: { bg: "bg-blue-50 dark:bg-neutral-700", ring: "ring-blue-200", text: "text-blue-800" },
   Transporte: { bg: "bg-indigo-50 dark:bg-neutral-700", ring: "ring-indigo-200", text: "text-indigo-800" },
@@ -106,7 +106,7 @@ const CATEGORY_EMOJIS = {
 };
 
 const CATEGORY_META = {
-  Comida: { icon: "🍔", color: "#f59e0b" },
+  Comida: { icon: "🍔", color: "#3b82f6" },
   Casa: { icon: "🏠", color: "#3b82f6" },
   Transporte: { icon: "🚗", color: "#6366f1" },
   Ocio: { icon: "🎮", color: "#ec4899" },
@@ -243,6 +243,8 @@ function importJSON(file, setDb) {
 function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartView, expensesByCategory }) {
   const chartData = chartView === "categories" ? expensesByCategory : pieData;
 
+  const getSliceColor = (entry) => entry?.color || CHART_COLORS.neutral;
+
   return (
     <SmallCard className="p-4 lg:py-3">
       <div>
@@ -251,61 +253,51 @@ function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartVie
       </div>
 
       <div className="rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 p-4">
-        <div className="relative mx-auto aspect-square w-full max-w-[320px] lg:max-w-[280px]">
-
+        <div className="relative mt-3 h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart key={`${chartView}-${chartData.length}`}>
               <Pie
                 data={chartData}
                 dataKey="value"
                 nameKey="name"
-                innerRadius="64%"
-                outerRadius="88%"
+                innerRadius="65%"
+                outerRadius="90%"
                 paddingAngle={2}
                 stroke="none"
+                isAnimationActive={false}
               >
-                {chartData.map((entry, index) => {
-                  const meta = CATEGORY_META[entry.name];
-                  return (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={meta?.color ?? `hsl(${(index * 47) % 360}, 70%, 55%)`}
-                    />
-                  );
-                })}
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry?.color ?? "#6b7280"} />
+                ))}
               </Pie>
-              <Tooltip formatter={(value, name) => [eur(value), name]} />
+
+              <Tooltip formatter={(value, name) => [eur(value), name]} contentStyle={{ borderRadius: 12 }} />
             </PieChart>
           </ResponsiveContainer>
 
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="rounded-3xl bg-white/90 px-5 py-4 text-center shadow-sm ring-1 ring-neutral-200 backdrop-blur">
-              <div className="text-[11px] font-extrabold uppercase tracking-wide text-neutral-500">
-                Balance
-              </div>
-              <div className={`mt-1 text-xl font-extrabold ${balanceAccent}`}>
-                {eur(totals.balance)}
+          {/* ✅ Balance centrado */}
+          {chartView === "balance" && (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center">
+              <div className="rounded-3xl bg-white/90 px-4 py-3 text-center shadow-sm ring-1 ring-neutral-200 backdrop-blur dark:bg-neutral-900/70 dark:ring-white/10">
+                <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Balance</div>
+                <div className={`text-lg font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {chartData.map((x, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 rounded-full bg-white ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 px-3 py-1 text-xs font-semibold"
+        <div className="mt-4 flex flex-wrap gap-2">
+          {chartData.map((x) => (
+            <span
+              key={x.name}
+              className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold ring-1 ring-neutral-200 dark:bg-neutral-900/80 dark:ring-neutral-700"
             >
-              <div
+              <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: x.color }}
+                style={{ backgroundColor: x?.color ?? "#6b7280" }}
               />
-              <div className="text-neutral-700 dark:text-neutral-300">{x.name}:</div>
-                <div className="text-neutral-700 dark:text-neutral-200">{x.name}:</div>
-              <div className="font-extrabold text-neutral-900 dark:text-neutral-50">
-                {eur(x.value)}
-              </div>
-            </div>
+              {x.name}: <span className="font-extrabold">{eur(x.value)}</span>
+            </span>
           ))}
         </div>
       </div>
@@ -430,12 +422,15 @@ export default function App() {
   }, [monthData.items]);
 
   const pieData = useMemo(() => {
-    const hasSomething = totals.income > 0 || totals.expense > 0;
-    if (!hasSomething) return [{ name: "Sin datos", value: 1, color: COLORS.neutral }];
-    const d = [];
-    if (totals.income > 0) d.push({ name: "Ingresos", value: totals.income, color: COLORS.income });
-    if (totals.expense > 0) d.push({ name: "Gastos", value: totals.expense, color: COLORS.expense });
-    return d;
+    const { income, expense, balance } = totals;
+
+    const data = [];
+    if (income > 0) data.push({ name: "Ingresos", value: income, color: CHART_COLORS.income });
+    if (expense > 0) data.push({ name: "Gastos", value: expense, color: CHART_COLORS.expense });
+    if (balance > 0) data.push({ name: "Ahorro", value: balance, color: CHART_COLORS.savings });
+
+    if (data.length === 0) return [{ name: "Sin datos", value: 1, color: CHART_COLORS.neutral }];
+    return data;
   }, [totals]);
 
   const insights = useMemo(() => {
@@ -474,7 +469,11 @@ export default function App() {
     }
 
     let arr = Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: (CATEGORY_META[name]?.color) || CHART_COLORS.neutral,
+      }))
       .sort((a, b) => b.value - a.value);
 
     // Agrupar en "Otros" si hay más de 6 categorías
@@ -484,7 +483,7 @@ export default function App() {
       const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
       return [
         ...top,
-        { name: "Otros", value: otrosValue }
+        { name: "Otros", value: otrosValue, color: CATEGORY_META["Otros"]?.color || CHART_COLORS.neutral }
       ].filter(c => c.value > 0);
     }
     return arr;
