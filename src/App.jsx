@@ -1,68 +1,88 @@
-  function BudgetRow({ name, emoji, spent, budget, onChange }) {
-    const b = Number(budget || 0);
-    const s = Number(spent || 0);
 
-    const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
-    const remaining = b - s;
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import "./index.css";
+import {
+  Plus,
+  Trash2,
+  Wallet,
+  Calendar,
+  Download,
+  Upload,
+  Sparkles,
+  Tag,
+  Search,
+  Filter,
+  ArrowUpRight,
+  ArrowDownRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-    const bar =
-      b <= 0
-        ? "bg-neutral-200 dark:bg-white/10"
-        : pct < 70
-        ? "bg-green-500"
-        : pct < 90
-        ? "bg-amber-500"
-        : "bg-red-500";
+function BudgetRow({ name, emoji, spent, budget, onChange }) {
+  const b = Number(budget || 0);
+  const s = Number(spent || 0);
 
-    return (
-      <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{emoji}</span>
-              <div className="truncate text-sm font-extrabold">{name}</div>
-            </div>
-            <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
-              Gastado: <span className="font-extrabold">{eur(s)}</span>
-              {b > 0 ? (
-                <>
-                  {" "}· Presupuesto: <span className="font-extrabold">{eur(b)}</span>
-                </>
-              ) : null}
-            </div>
+  const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
+  const remaining = b - s;
+
+  const bar =
+    b <= 0
+      ? "bg-neutral-200 dark:bg-white/10"
+      : pct < 70
+      ? "bg-green-500"
+      : pct < 90
+      ? "bg-amber-500"
+      : "bg-red-500";
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{emoji}</span>
+            <div className="truncate text-sm font-extrabold">{name}</div>
           </div>
-
-          <div className="w-28 shrink-0">
-            <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-300 mb-1 text-right">
-              {b > 0 ? `${pct}%` : "—"}
-            </div>
-            <input
-              value={String(budget ?? "")}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder="€"
-              type="number"
-              className="w-full rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
-            />
+          <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+            Gastado: <span className="font-extrabold">{eur(s)}</span>
+            {b > 0 ? (
+              <>
+                {" "}· Presupuesto: <span className="font-extrabold">{eur(b)}</span>
+              </>
+            ) : null}
           </div>
         </div>
 
-        {/* Barra */}
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
-          <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
-        </div>
-
-        {b > 0 && (
-          <div className="mt-2 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
-            {remaining >= 0 ? (
-              <>Te quedan <span className="font-extrabold">{eur(remaining)}</span></>
-            ) : (
-              <>Te pasas por <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span></>
-            )}
+        <div className="w-28 shrink-0">
+          <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-300 mb-1 text-right">
+            {b > 0 ? `${pct}%` : "—"}
           </div>
-        )}
+          <input
+            value={String(budget ?? "")}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="€"
+            type="number"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
+          />
+        </div>
       </div>
-    );
-  }
+
+      {/* Barra */}
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
+        <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      {b > 0 && (
+        <div className="mt-2 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+          {remaining >= 0 ? (
+            <>Te quedan <span className="font-extrabold">{eur(remaining)}</span></>
+          ) : (
+            <>Te pasas por <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span></>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   // ...existing code...
@@ -77,7 +97,7 @@ export default function App() {
       m[cat] = (m[cat] || 0) + it.amount;
     }
     return m;
-  }, [safeMonthData]);
+  }, [safeMonthData.items]);
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
