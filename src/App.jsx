@@ -81,25 +81,6 @@ export default function App() {
     return m;
   }, [safeMonthData.items]);
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import "./index.css";
-import {
-  Plus,
-  Trash2,
-  Wallet,
-  Calendar,
-  Download,
-  Upload,
-  Sparkles,
-  Tag,
-  Search,
-  Filter,
-  ArrowUpRight,
-  ArrowDownRight,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-
 const THEME_KEY = "finanzas_theme";
 
 const STORAGE_KEY = "finanzas_personales_v2";
