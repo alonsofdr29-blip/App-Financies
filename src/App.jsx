@@ -12,6 +12,11 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import SmallCard from "./components/ui/SmallCard";
+import Button from "./components/ui/Button";
+import Badge from "./components/ui/Badge";
+import Segmented from "./components/ui/Segmented";
+import Input from "./components/ui/Input";
 
 /* =========================
    Constantes / Helpers
@@ -79,89 +84,9 @@ function eur(n) {
   }).format(Number(n) || 0);
 }
 function clampNumber(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
-}
-function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
-}
-function loadDB() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { months: {} };
-    const parsed = JSON.parse(raw);
-    if (!parsed?.months) return { months: {} };
-    return parsed;
-  } catch {
-    return { months: {} };
-  }
-}
-function saveDB(db) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-}
 function exportJSON(db) {
-  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "finanzas-backup.json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-function importJSON(file, setDb) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(String(reader.result || ""));
-      if (!parsed?.months) throw new Error("Formato inválido");
       setDb(parsed);
-      alert("Importación completada ✅");
-    } catch {
-      alert("No he podido importar ese archivo (JSON inválido).");
-    }
-  };
-  reader.readAsText(file);
-}
-
-/* =========================
-   UI Components
-========================= */
-
-function SmallCard({ children, className = "" }) {
-  return (
-    <div
-      className={[
-        "rounded-3xl border shadow-sm",
-        "border-neutral-200 bg-white",
-        "dark:border-white/10 dark:bg-white/5 dark:shadow-none",
-        "backdrop-blur-xl",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
 function Button({ children, onClick, variant = "primary", type = "button", className = "", title }) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed";
-  const variants = {
-    primary:
-      "bg-neutral-900 text-white hover:bg-neutral-800 " +
-      "dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90",
-    soft:
-      "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 " +
-      "dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15",
-    ghost:
-      "bg-transparent text-neutral-900 hover:bg-neutral-100 " +
-      "dark:text-neutral-100 dark:hover:bg-white/10",
-    danger: "bg-red-600 text-white hover:bg-red-500",
-  };
-  return (
-    <button title={title} type={type} onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
-      {children}
     </button>
   );
 }
@@ -249,7 +174,7 @@ function BudgetRow({ name, emoji, spent, budget, onChange }) {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{emoji}</span>
+                              <Badge label={it.category} emoji={CATEGORY_EMOJIS[it.category || "Otros"]} />
             <div className="truncate text-sm font-extrabold">{name}</div>
           </div>
           <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
