@@ -489,23 +489,33 @@ export default function App() {
   }, [month]);
 
 
-  const monthData = db.months[month] || { items: [] };
+  const monthData = db.months[month] || {
+    items: [],
+    budgets: {},
+    budgetTotal: 0,
+  };
+
   const safeMonthData = {
-    items: monthData.items || [],
-    budgets: monthData.budgets || {},
-    budgetTotal: monthData.budgetTotal || 0,
+    items: Array.isArray(monthData.items) ? monthData.items : [],
+    budgets:
+      monthData.budgets && typeof monthData.budgets === "object"
+        ? monthData.budgets
+        : {},
+    budgetTotal: Number.isFinite(Number(monthData.budgetTotal))
+      ? Number(monthData.budgetTotal)
+      : 0,
   };
 
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
-    for (const it of monthData.items) {
+    for (const it of safeMonthData.items) {
       if (it.kind === "income") income += it.amount;
       else expense += it.amount;
     }
     const balance = income - expense;
     return { income, expense, balance };
-  }, [monthData.items]);
+  }, [safeMonthData.items]);
 
   const pieData = useMemo(() => {
     const { income, expense, balance } = totals;
@@ -536,19 +546,19 @@ export default function App() {
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return monthData.items.filter((it) => {
+    return safeMonthData.items.filter((it) => {
       const passKind = filterKind === "all" ? true : it.kind === filterKind;
       const passQuery = !q
         ? true
         : (it.name || "").toLowerCase().includes(q) || (it.category || "").toLowerCase().includes(q);
       return passKind && passQuery;
     });
-  }, [monthData.items, query, filterKind]);
+  }, [safeMonthData.items, query, filterKind]);
 
   // Gastos agrupados por categoría
   const expensesByCategory = useMemo(() => {
     const map = {};
-    for (const it of monthData.items) {
+    for (const it of safeMonthData.items) {
       if (it.kind !== "expense") continue;
       const cat = it.category || "Otros";
       map[cat] = (map[cat] || 0) + it.amount;
@@ -573,7 +583,7 @@ export default function App() {
       ].filter(c => c.value > 0);
     }
     return arr;
-  }, [monthData.items]);
+  }, [safeMonthData.items]);
 
   function addItem() {
     const a = clampNumber(amount);
