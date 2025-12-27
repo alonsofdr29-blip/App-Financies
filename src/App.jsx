@@ -1,22 +1,4 @@
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import "./index.css";
-import {
-  Plus,
-  Trash2,
-  Wallet,
-  Calendar,
-  Download,
-  Upload,
-  Sparkles,
-  Tag,
-  Search,
-  Filter,
-  ArrowUpRight,
-  ArrowDownRight,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 function BudgetRow({ name, emoji, spent, budget, onChange }) {
   const b = Number(budget || 0);
