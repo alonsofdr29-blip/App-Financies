@@ -63,6 +63,11 @@
       </div>
     );
   }
+
+export default function App() {
+  // ...existing code...
+
+  // ...después de definir safeMonthData...
   const spentByCategory = useMemo(() => {
     const m = {};
     for (const it of safeMonthData.items) {
