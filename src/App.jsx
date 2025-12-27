@@ -5,102 +5,60 @@ import {
   Plus,
   Trash2,
   Wallet,
-  Calendar,
   Download,
   Upload,
-  Sparkles,
-  Tag,
   Search,
-  Filter,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-function BudgetRow({ name, emoji, spent, budget, onChange }) {
-  const b = Number(budget || 0);
-  const s = Number(spent || 0);
-
-  const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
-  const remaining = b - s;
-
-  const bar =
-    b <= 0
-      ? "bg-neutral-200 dark:bg-white/10"
-      : pct < 70
-      ? "bg-green-500"
-      : pct < 90
-      ? "bg-amber-500"
-      : "bg-red-500";
-
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{emoji}</span>
-            <div className="truncate text-sm font-extrabold">{name}</div>
-          </div>
-          <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
-            Gastado: <span className="font-extrabold">{eur(s)}</span>
-            {b > 0 ? (
-              <>
-                {" "}· Presupuesto: <span className="font-extrabold">{eur(b)}</span>
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="w-28 shrink-0">
-          <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-300 mb-1 text-right">
-            {b > 0 ? `${pct}%` : "—"}
-          </div>
-          <input
-            value={String(budget ?? "")}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="€"
-            type="number"
-            className="w-full rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
-          />
-        </div>
-      </div>
-
-      {/* Barra */}
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
-        <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
-      </div>
-
-      {b > 0 && (
-        <div className="mt-2 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
-          {remaining >= 0 ? (
-            <>Te quedan <span className="font-extrabold">{eur(remaining)}</span></>
-          ) : (
-            <>Te pasas por <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span></>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function App() {
-  // ...existing code...
-
-  // ...después de definir safeMonthData...
-  const spentByCategory = useMemo(() => {
-    const m = {};
-    if (!safeMonthData || !safeMonthData.items) return m;
-    for (const it of safeMonthData.items) {
-      if (it.kind !== "expense") continue;
-      const cat = it.category || "Otros";
-      m[cat] = (m[cat] || 0) + it.amount;
-    }
-    return m;
-  }, [safeMonthData.items]);
+/* =========================
+   Constantes / Helpers
+========================= */
 
 const THEME_KEY = "finanzas_theme";
-
 const STORAGE_KEY = "finanzas_personales_v2";
+
+const CHART_COLORS = {
+  income: "#22c55e",
+  expense: "#ef4444",
+  savings: "#3b82f6",
+  neutral: "#6b7280",
+};
+
+const SUGGESTED_CATEGORIES = {
+  expense: ["Comida", "Casa", "Transporte", "Ocio", "Salud", "Suscripciones", "Otros"],
+  income: ["Sueldo", "Extra", "Ventas", "Regalo", "Otros"],
+};
+
+const CATEGORY_EMOJIS = {
+  Comida: "🍔",
+  Casa: "🏠",
+  Transporte: "🚗",
+  Ocio: "🎮",
+  Salud: "💊",
+  Suscripciones: "📺",
+  Sueldo: "💼",
+  Extra: "💰",
+  Ventas: "🛒",
+  Regalo: "🎁",
+  Otros: "📌",
+};
+
+const CATEGORY_META = {
+  Comida: { icon: "🍔", color: "#f59e0b" },
+  Casa: { icon: "🏠", color: "#3b82f6" },
+  Transporte: { icon: "🚗", color: "#6366f1" },
+  Ocio: { icon: "🎮", color: "#ec4899" },
+  Salud: { icon: "💊", color: "#10b981" },
+  Suscripciones: { icon: "📺", color: "#8b5cf6" },
+  Sueldo: { icon: "💼", color: "#22c55e" },
+  Extra: { icon: "💰", color: "#84cc16" },
+  Ventas: { icon: "🛒", color: "#14b8a6" },
+  Regalo: { icon: "🎁", color: "#fb7185" },
+  Otros: { icon: "🧾", color: "#6b7280" },
+};
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -118,7 +76,7 @@ function eur(n) {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 2,
-  }).format(n);
+  }).format(Number(n) || 0);
 }
 function clampNumber(v) {
   const n = Number(v);
@@ -142,75 +100,51 @@ function loadDB() {
 function saveDB(db) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
+function exportJSON(db) {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "finanzas-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importJSON(file, setDb) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || ""));
+      if (!parsed?.months) throw new Error("Formato inválido");
+      setDb(parsed);
+      alert("Importación completada ✅");
+    } catch {
+      alert("No he podido importar ese archivo (JSON inválido).");
+    }
+  };
+  reader.readAsText(file);
+}
 
-// Paleta más “app moderna”
-const CHART_COLORS = {
-  income: "#22c55e",  // verde
-  expense: "#ef4444", // rojo
-  savings: "#3b82f6", // azul
-  neutral: "#6b7280",
-};
+/* =========================
+   UI Components
+========================= */
 
-// Categorías sugeridas (puedes editarlas)
-const SUGGESTED_CATEGORIES = {
-  expense: ["Comida", "Casa", "Transporte", "Ocio", "Salud", "Suscripciones", "Otros"],
-  income: ["Sueldo", "Extra", "Ventas", "Regalo", "Otros"],
-};
-
-// Colores por categoría (no pasa nada si no existe: cae a neutro)
-const CATEGORY_STYLES = {
-  Comida: { bg: "bg-amber-50 dark:bg-neutral-700", ring: "ring-amber-200", text: "text-amber-800" },
-  Casa: { bg: "bg-blue-50 dark:bg-neutral-700", ring: "ring-blue-200", text: "text-blue-800" },
-  Transporte: { bg: "bg-indigo-50 dark:bg-neutral-700", ring: "ring-indigo-200", text: "text-indigo-800" },
-  Ocio: { bg: "bg-pink-50 dark:bg-neutral-700", ring: "ring-pink-200", text: "text-pink-800" },
-  Salud: { bg: "bg-emerald-50 dark:bg-neutral-700", ring: "ring-emerald-200", text: "text-emerald-800" },
-  Suscripciones: { bg: "bg-purple-50 dark:bg-neutral-700", ring: "ring-purple-200", text: "text-purple-800" },
-  Sueldo: { bg: "bg-green-50 dark:bg-neutral-700", ring: "ring-green-200", text: "text-green-800" },
-  Extra: { bg: "bg-lime-50 dark:bg-neutral-700", ring: "ring-lime-200", text: "text-lime-800" },
-  Ventas: { bg: "bg-teal-50 dark:bg-neutral-700", ring: "ring-teal-200", text: "text-teal-800" },
-  Regalo: { bg: "bg-rose-50 dark:bg-neutral-700", ring: "ring-rose-200", text: "text-rose-800" },
-};
-
-const CATEGORY_EMOJIS = {
-  Comida: "🍔",
-  Casa: "🏠",
-  Transporte: "🚗",
-  Ocio: "🎮",
-  Salud: "💊",
-  Suscripciones: "📺",
-  Sueldo: "💼",
-  Extra: "💰",
-  Ventas: "🛒",
-  Regalo: "🎁",
-  Otros: "📌",
-};
-
-const CATEGORY_META = {
-  Comida: { icon: "🍔", color: "#3b82f6" },
-  Casa: { icon: "🏠", color: "#3b82f6" },
-  Transporte: { icon: "🚗", color: "#6366f1" },
-  Ocio: { icon: "🎮", color: "#ec4899" },
-  Salud: { icon: "💊", color: "#10b981" },
-  Suscripciones: { icon: "📺", color: "#8b5cf6" },
-  Otros: { icon: "🧾", color: "#6b7280" },
-};
-
-function Badge({ label }) {
+function SmallCard({ children, className = "" }) {
   return (
-    <span
+    <div
       className={[
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1",
-        "bg-neutral-50 ring-neutral-200 text-neutral-800",
-        "dark:bg-white/10 dark:ring-white/10 dark:text-neutral-100",
+        "rounded-3xl border shadow-sm",
+        "border-neutral-200 bg-white",
+        "dark:border-white/10 dark:bg-white/5 dark:shadow-none",
+        "backdrop-blur-xl",
+        className,
       ].join(" ")}
     >
-      <span className="text-sm leading-none">{CATEGORY_EMOJIS[label] ?? "🏷️"}</span>
-      {label}
-    </span>
+      {children}
+    </div>
   );
 }
 
-function Button({ children, onClick, variant = "primary", type = "button", className = "" }) {
+function Button({ children, onClick, variant = "primary", type = "button", className = "", title }) {
   const base =
     "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
@@ -226,9 +160,24 @@ function Button({ children, onClick, variant = "primary", type = "button", class
     danger: "bg-red-600 text-white hover:bg-red-500",
   };
   return (
-    <button type={type} onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
+    <button title={title} type={type} onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
       {children}
     </button>
+  );
+}
+
+function Badge({ label }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1",
+        "bg-neutral-50 ring-neutral-200 text-neutral-800",
+        "dark:bg-white/10 dark:ring-white/10 dark:text-neutral-100",
+      ].join(" ")}
+    >
+      <span className="text-sm leading-none">{CATEGORY_EMOJIS[label] ?? "🏷️"}</span>
+      {label}
+    </span>
   );
 }
 
@@ -279,59 +228,89 @@ function Input({ label, value, onChange, placeholder, type = "text", right }) {
   );
 }
 
-function SmallCard({ children, className = "" }) {
+function BudgetRow({ name, emoji, spent, budget, onChange }) {
+  const b = Number(budget || 0);
+  const s = Number(spent || 0);
+
+  const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
+  const remaining = b - s;
+
+  const bar =
+    b <= 0
+      ? "bg-neutral-200 dark:bg-white/10"
+      : pct < 70
+      ? "bg-green-500"
+      : pct < 90
+      ? "bg-amber-500"
+      : "bg-red-500";
+
   return (
-    <div
-      className={[
-        "rounded-3xl border shadow-sm",
-        "border-neutral-200 bg-white",
-        "dark:border-white/10 dark:bg-white/5 dark:shadow-none",
-        "backdrop-blur-xl",
-        className,
-      ].join(" ")}
-    >
-      {children}
+    <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{emoji}</span>
+            <div className="truncate text-sm font-extrabold">{name}</div>
+          </div>
+          <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+            Gastado: <span className="font-extrabold">{eur(s)}</span>
+            {b > 0 ? (
+              <>
+                {" "}
+                · Presupuesto: <span className="font-extrabold">{eur(b)}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="w-28 shrink-0">
+          <div className="mb-1 text-right text-[11px] font-bold text-neutral-500 dark:text-neutral-300">
+            {b > 0 ? `${pct}%` : "—"}
+          </div>
+          <input
+            value={String(budget ?? "")}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="€"
+            type="number"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
+        <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      {b > 0 && (
+        <div className="mt-2 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+          {remaining >= 0 ? (
+            <>
+              Te quedan <span className="font-extrabold">{eur(remaining)}</span>
+            </>
+          ) : (
+            <>
+              Te pasas por{" "}
+              <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function exportJSON(db) {
-  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "finanzas-backup.json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importJSON(file, setDb) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(String(reader.result || ""));
-      if (!parsed?.months) throw new Error("Formato inválido");
-      setDb(parsed);
-      alert("Importación completada ✅");
-    } catch {
-      alert("No he podido importar ese archivo (JSON inválido).");
-    }
-  };
-  reader.readAsText(file);
-}
-
-function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartView, expensesByCategory }) {
+function ChartCard({
+  pieData,
+  totals,
+  balanceAccent,
+  chartView,
+  setChartView,
+  expensesByCategory,
+}) {
   const chartData = chartView === "categories" ? expensesByCategory : pieData;
 
-  const getSliceColor = (entry) => entry?.color || CHART_COLORS.neutral;
-
   return (
-    <SmallCard className="p-4 lg:py-3">
-      <div>
-        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Gráfico</div>
-        {/* ...toggle header ya insertado antes... */}
-      </div>
-
+    <SmallCard className="p-4">
       <div className="rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 p-4">
         <div className="relative mt-3 h-56">
           <ResponsiveContainer width="100%" height="100%">
@@ -347,15 +326,13 @@ function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartVie
                 isAnimationActive={false}
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry?.color ?? "#6b7280"} />
+                  <Cell key={`cell-${index}`} fill={entry?.color ?? CHART_COLORS.neutral} />
                 ))}
               </Pie>
-
               <Tooltip formatter={(value, name) => [eur(value), name]} contentStyle={{ borderRadius: 12 }} />
             </PieChart>
           </ResponsiveContainer>
 
-          {/* ✅ Balance centrado */}
           {chartView === "balance" && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center">
               <div className="rounded-3xl bg-white/90 px-4 py-3 text-center shadow-sm ring-1 ring-neutral-200 backdrop-blur dark:bg-neutral-900/70 dark:ring-white/10">
@@ -372,100 +349,67 @@ function ChartCard({ pieData, totals, balanceAccent, eur, chartView, setChartVie
               key={x.name}
               className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold ring-1 ring-neutral-200 dark:bg-neutral-900/80 dark:ring-neutral-700"
             >
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: x?.color ?? "#6b7280" }}
-              />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: x?.color ?? CHART_COLORS.neutral }} />
               {x.name}: <span className="font-extrabold">{eur(x.value)}</span>
             </span>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-1">
+      <div className="mt-3 flex items-center gap-2">
         <button
           onClick={() => setChartView("balance")}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition
-            ${chartView === "balance"
+          className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+            chartView === "balance"
               ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"}
-          `}
+              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"
+          }`}
         >
           Balance
         </button>
         <button
           onClick={() => setChartView("categories")}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition
-            ${chartView === "categories"
+          className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+            chartView === "categories"
               ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"}
-          `}
+              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"
+          }`}
         >
           Categorías
         </button>
       </div>
-
-      {/* Breakdown por categoría */}
-      {chartView === "categories" && (
-        <div className="mt-4 space-y-2">
-          {expensesByCategory.filter(c => c.value > 1).map((c) => {
-            const pct = totals.expense
-              ? Math.round((c.value / totals.expense) * 100)
-              : 0;
-            const meta = CATEGORY_META[c.name] ?? { icon: "📁", color: "#9ca3af" };
-
-            return (
-              <div
-                key={c.name}
-                className="flex items-center justify-between rounded-2xl bg-white/70 dark:bg-white/5 px-3 py-2 text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-sm"
-                    style={{ backgroundColor: meta.color + "22" }}
-                  >
-                    {meta.icon}
-                  </span>
-                  <span className="font-bold">{c.name}</span>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-300">
-                    {pct}%
-                  </span>
-                </div>
-                <div className="font-extrabold">
-                  {eur(c.value)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </SmallCard>
   );
 }
 
+/* =========================
+   App
+========================= */
+
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem(THEME_KEY) === "dark";
-  });
-  const todayKey = monthKeyFromDate(new Date());
-
   const [db, setDb] = useState(() => loadDB());
-  const [month, setMonth] = useState(todayKey);
-  const [chartView, setChartView] = useState("balance"); // "balance" | "categories"
+  const [month, setMonth] = useState(() => monthKeyFromDate(new Date()));
 
-  // Form
-  const [kind, setKind] = useState("expense");
+  const [darkMode, setDarkMode] = useState(() => {
+    const v = localStorage.getItem(THEME_KEY);
+    return v ? v === "dark" : false;
+  });
+
+  const [kind, setKind] = useState("expense"); // expense | income
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
-  // UI helpers
+  const [chartView, setChartView] = useState("balance"); // balance | categories
   const [query, setQuery] = useState("");
   const [filterKind, setFilterKind] = useState("all"); // all | income | expense
+
   const fileInputRef = useRef(null);
 
+  // Persist DB
   useEffect(() => saveDB(db), [db]);
 
+  // Theme
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) {
@@ -477,78 +421,82 @@ export default function App() {
     }
   }, [darkMode]);
 
-  function ensureMonth(m) {
+  // Ensure month exists
+  useEffect(() => {
     setDb((prev) => {
-      if (prev.months[m]) return prev;
+      if (prev.months?.[month]) return prev;
       return {
         ...prev,
         months: {
           ...prev.months,
-          [m]: { items: [], budgets: {}, budgetTotal: 0 },
+          [month]: { items: [], budgets: {}, budgetTotal: 0 },
         },
       };
     });
-  }
-  useEffect(() => {
-    ensureMonth(month);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
+  const monthData = db.months?.[month] || { items: [], budgets: {}, budgetTotal: 0 };
 
-  const monthData = db.months[month] || {
-    items: [],
-    budgets: {},
-    budgetTotal: 0,
-  };
-
-  const safeMonthData = {
-    items: Array.isArray(monthData.items) ? monthData.items : [],
-    budgets:
-      monthData.budgets && typeof monthData.budgets === "object"
-        ? monthData.budgets
-        : {},
-    budgetTotal: Number.isFinite(Number(monthData.budgetTotal))
-      ? Number(monthData.budgetTotal)
-      : 0,
-  };
+  const safeMonthData = useMemo(() => {
+    return {
+      items: Array.isArray(monthData.items) ? monthData.items : [],
+      budgets: monthData.budgets && typeof monthData.budgets === "object" ? monthData.budgets : {},
+      budgetTotal: Number.isFinite(Number(monthData.budgetTotal)) ? Number(monthData.budgetTotal) : 0,
+    };
+  }, [monthData]);
 
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
     for (const it of safeMonthData.items) {
-      if (it.kind === "income") income += it.amount;
-      else expense += it.amount;
+      if (it.kind === "income") income += Number(it.amount) || 0;
+      else expense += Number(it.amount) || 0;
     }
     const balance = income - expense;
     return { income, expense, balance };
   }, [safeMonthData.items]);
 
+  const balanceAccent =
+    totals.balance > 0
+      ? "text-green-700 dark:text-green-400"
+      : totals.balance < 0
+      ? "text-red-700 dark:text-red-400"
+      : "text-neutral-900 dark:text-neutral-100";
+
+  const expensesByCategory = useMemo(() => {
+    const map = {};
+    for (const it of safeMonthData.items) {
+      if (it.kind !== "expense") continue;
+      const cat = it.category || "Otros";
+      map[cat] = (map[cat] || 0) + (Number(it.amount) || 0);
+    }
+    let arr = Object.entries(map)
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: CATEGORY_META[name]?.color || CHART_COLORS.neutral,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    if (arr.length > 6) {
+      const top = arr.slice(0, 5);
+      const rest = arr.slice(5);
+      const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
+      return [...top, { name: "Otros", value: otrosValue, color: CATEGORY_META["Otros"]?.color || CHART_COLORS.neutral }].filter(
+        (c) => c.value > 0
+      );
+    }
+    return arr.filter((c) => c.value > 0);
+  }, [safeMonthData.items]);
+
   const pieData = useMemo(() => {
-    const { income, expense, balance } = totals;
-
     const data = [];
-    if (income > 0) data.push({ name: "Ingresos", value: income, color: CHART_COLORS.income });
-    if (expense > 0) data.push({ name: "Gastos", value: expense, color: CHART_COLORS.expense });
-    if (balance > 0) data.push({ name: "Ahorro", value: balance, color: CHART_COLORS.savings });
-
+    if (totals.income > 0) data.push({ name: "Ingresos", value: totals.income, color: CHART_COLORS.income });
+    if (totals.expense > 0) data.push({ name: "Gastos", value: totals.expense, color: CHART_COLORS.expense });
+    if (totals.balance > 0) data.push({ name: "Ahorro", value: totals.balance, color: CHART_COLORS.savings });
     if (data.length === 0) return [{ name: "Sin datos", value: 1, color: CHART_COLORS.neutral }];
     return data;
   }, [totals]);
-
-  const insights = useMemo(() => {
-    const has = totals.income > 0 || totals.expense > 0;
-    if (!has) return { title: "Empieza fácil", desc: "Añade tu primer gasto o ingreso y verás el gráfico moverse." };
-
-    if (totals.balance > 0) {
-      const rate = totals.income > 0 ? Math.round((totals.expense / totals.income) * 100) : 0;
-      return { title: "Vas en positivo ✅", desc: `Has gastado aprox. el ${rate}% de tus ingresos este mes.` };
-    }
-    if (totals.balance < 0) {
-      return { title: "Ojo: estás en negativo", desc: "Prueba a reducir gastos o añadir ingresos para equilibrar." };
-    }
-    return { title: "Balance a cero", desc: "Ingresos y gastos están igualados. ¡Buen control!" };
-  }, [totals]);
-
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -560,36 +508,6 @@ export default function App() {
       return passKind && passQuery;
     });
   }, [safeMonthData.items, query, filterKind]);
-
-  // Gastos agrupados por categoría
-  const expensesByCategory = useMemo(() => {
-    const map = {};
-    for (const it of safeMonthData.items) {
-      if (it.kind !== "expense") continue;
-      const cat = it.category || "Otros";
-      map[cat] = (map[cat] || 0) + it.amount;
-    }
-
-    let arr = Object.entries(map)
-      .map(([name, value]) => ({
-        name,
-        value,
-        color: (CATEGORY_META[name]?.color) || CHART_COLORS.neutral,
-      }))
-      .sort((a, b) => b.value - a.value);
-
-    // Agrupar en "Otros" si hay más de 6 categorías
-    if (arr.length > 6) {
-      const top = arr.slice(0, 5);
-      const rest = arr.slice(5);
-      const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
-      return [
-        ...top,
-        { name: "Otros", value: otrosValue, color: CATEGORY_META["Otros"]?.color || CHART_COLORS.neutral }
-      ].filter(c => c.value > 0);
-    }
-    return arr;
-  }, [safeMonthData.items]);
 
   function addItem() {
     const a = clampNumber(amount);
@@ -608,8 +526,14 @@ export default function App() {
     };
 
     setDb((prev) => {
-      const cur = prev.months[month] || { items: [] };
-      return { ...prev, months: { ...prev.months, [month]: { ...cur, items: [it, ...cur.items] } } };
+      const cur = prev.months?.[month] || { items: [], budgets: {}, budgetTotal: 0 };
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [month]: { ...cur, items: [it, ...(cur.items || [])] },
+        },
+      };
     });
 
     setName("");
@@ -619,32 +543,63 @@ export default function App() {
 
   function removeItem(id) {
     setDb((prev) => {
-      const cur = prev.months[month] || { items: [] };
+      const cur = prev.months?.[month] || { items: [], budgets: {}, budgetTotal: 0 };
       return {
         ...prev,
-        months: { ...prev.months, [month]: { ...cur, items: cur.items.filter((x) => x.id !== id) } },
+        months: {
+          ...prev.months,
+          [month]: { ...cur, items: (cur.items || []).filter((x) => x.id !== id) },
+        },
       };
     });
   }
 
-  const balanceAccent =
-    totals.balance > 0
-      ? "text-green-700 dark:text-green-400"
-      : totals.balance < 0
-      ? "text-red-700 dark:text-red-400"
-      : "text-neutral-900 dark:text-neutral-100";
+  function setBudgetTotal(v) {
+    const n = Math.max(0, clampNumber(v));
+    setDb((prev) => {
+      const cur = prev.months?.[month] || { items: [], budgets: {}, budgetTotal: 0 };
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [month]: { ...cur, budgetTotal: n },
+        },
+      };
+    });
+  }
 
-	// DEBUG: Mostrar estado básico en pantalla para saber si el render llega
-	if (typeof window !== 'undefined') {
-		window.__APP_DEBUG__ = { db, month, monthData, totals, pieData, expensesByCategory };
-	}
+  function setBudgetForCategory(cat, v) {
+    const n = Math.max(0, clampNumber(v));
+    setDb((prev) => {
+      const cur = prev.months?.[month] || { items: [], budgets: {}, budgetTotal: 0 };
+      const nextBudgets = { ...(cur.budgets || {}) };
+      nextBudgets[cat] = n;
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [month]: { ...cur, budgets: nextBudgets },
+        },
+      };
+    });
+  }
+
+  const spentByCategory = useMemo(() => {
+    const m = {};
+    for (const it of safeMonthData.items) {
+      if (it.kind !== "expense") continue;
+      const cat = it.category || "Otros";
+      m[cat] = (m[cat] || 0) + (Number(it.amount) || 0);
+    }
+    return m;
+  }, [safeMonthData.items]);
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
       <div className="pointer-events-none fixed inset-0 dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(16,185,129,0.14),transparent_60%)]" />
       <div className="relative">
-        {/* App shell */}
         <div className="mx-auto w-full px-4 py-4 lg:px-8 lg:py-4 lg:h-[calc(100vh-24px)]">
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-neutral-900 text-white shadow-sm">
@@ -657,9 +612,10 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="soft" onClick={() => exportJSON(db)} className="px-3">
+              <Button variant="soft" onClick={() => exportJSON(db)} className="px-3" title="Exportar">
                 <Download className="h-4 w-4" />
               </Button>
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -671,252 +627,177 @@ export default function App() {
                   e.target.value = "";
                 }}
               />
-              <Button variant="soft" onClick={() => fileInputRef.current?.click()} className="px-3">
+              <Button variant="soft" onClick={() => fileInputRef.current?.click()} className="px-3" title="Importar">
                 <Upload className="h-4 w-4" />
               </Button>
-              <Button
-                variant="soft"
-                onClick={() => setDarkMode((v) => !v)}
-                className="px-3"
-                title="Cambiar modo"
-              >
+
+              <Button variant="soft" onClick={() => setDarkMode((v) => !v)} className="px-3" title="Cambiar modo">
                 {darkMode ? "🌙" : "☀️"}
               </Button>
             </div>
           </div>
 
-          {/* DASHBOARD PC */}
+          {/* Dashboard */}
           <div className="mt-4 grid gap-4 lg:grid-cols-12 lg:h-[calc(100vh-120px)] items-start">
-            {/* IZQUIERDA */}
+            {/* LEFT */}
             <div className="lg:col-span-5 lg:h-full min-h-0">
               <div className="space-y-4 lg:h-full lg:overflow-auto lg:pr-2 min-h-0">
-                {/* AQUÍ: tu tarjeta de Mes + Insight + tus tarjetas Ingresos/Gastos/Balance */}
-
-                {/* Month selector */}
+                {/* Mes + resumen */}
                 <SmallCard className="p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Mes</div>
-                      <div className="capitalize text-base font-extrabold text-neutral-900 dark:text-white">{monthLabel(month)}</div>
+                      <div className="text-base font-extrabold text-neutral-900 dark:text-white">{monthLabel(month)}</div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                      <Calendar className="h-4 w-4 text-neutral-500" />
-                      <input
-                        type="month"
-                        value={month}
-                        onChange={(e) => setMonth(e.target.value)}
-                        className="bg-transparent text-sm font-semibold text-neutral-900 outline-none dark:text-white"
-                      />
-                    </div>
+                    <input
+                      type="month"
+                      value={month}
+                      onChange={(e) => setMonth(e.target.value)}
+                      className="rounded-2xl border px-3 py-2 text-sm font-semibold outline-none border-neutral-200 bg-white text-neutral-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
                   </div>
 
-                  <div className="mt-3 flex items-start gap-2 rounded-2xl bg-neutral-100 p-3 dark:bg-white/10 dark:ring-1 dark:ring-white/10">
-                    <Sparkles className="mt-0.5 h-4 w-4 text-neutral-700 dark:text-neutral-200" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-neutral-900 dark:text-white">{insights.title}</div>
-                      <div className="text-xs font-medium text-neutral-600 dark:text-neutral-200">{insights.desc}</div>
-                    </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <SmallCard className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Ingresos</div>
+                          <div className="mt-2 text-xl font-extrabold">{eur(totals.income)}</div>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50">
+                          <ArrowUpRight className="h-5 w-5 text-green-700" />
+                        </div>
+                      </div>
+                    </SmallCard>
+
+                    <SmallCard className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Gastos</div>
+                          <div className="mt-2 text-xl font-extrabold">{eur(totals.expense)}</div>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50">
+                          <ArrowDownRight className="h-5 w-5 text-red-700" />
+                        </div>
+                      </div>
+                    </SmallCard>
+
+                    <SmallCard className="col-span-2 p-4">
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Balance</div>
+                      <div className={`mt-2 text-2xl font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</div>
+                    </SmallCard>
                   </div>
                 </SmallCard>
 
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  <SmallCard className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Ingresos</div>
-                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-green-50">
-                        <ArrowUpRight className="h-4 w-4 text-green-700" />
-                      </div>
+                {/* Añadir movimiento */}
+                <SmallCard className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Añadir movimiento</div>
+                      <div className="text-base font-extrabold text-neutral-900 dark:text-white">Rápido y simple</div>
                     </div>
-                    <div className="mt-2 text-xl font-extrabold text-neutral-900 dark:text-white">{eur(totals.income)}</div>
-                  </SmallCard>
+                  </div>
 
-                  <SmallCard className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Gastos</div>
-                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-red-50">
-                        <ArrowDownRight className="h-4 w-4 text-red-700" />
+                  <div className="mt-3">
+                    <Segmented value={kind} onChange={setKind} />
+                  </div>
+
+                  <div className="mt-3 grid gap-3">
+                    <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado" />
+                    <Input
+                      label="Importe"
+                      value={amount}
+                      onChange={setAmount}
+                      placeholder="Ej: 25.50"
+                      type="number"
+                      right={<span className="text-sm font-extrabold text-neutral-500">€</span>}
+                    />
+                    <div>
+                      <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">Categoría</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(SUGGESTED_CATEGORIES[kind] || []).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCategory(c)}
+                            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition ${
+                              (category || "").trim() === c
+                                ? "bg-neutral-900 text-white ring-neutral-900 dark:bg-white dark:text-neutral-900 dark:ring-white"
+                                : "bg-white text-neutral-700 ring-neutral-200 hover:bg-neutral-50 dark:bg-white/10 dark:text-neutral-200 dark:ring-white/10"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <div className="mt-2 text-xl font-extrabold text-neutral-900 dark:text-white">{eur(totals.expense)}</div>
-                  </SmallCard>
-
-                  <SmallCard className="col-span-2 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Balance</div>
-                      <div className="text-xs font-bold text-neutral-500 dark:text-neutral-300">Ingresos − Gastos</div>
-                    </div>
-                    <div className={`mt-2 text-2xl font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</div>
-                  </SmallCard>
-
-                  {/* Añadir movimiento debajo del balance */}
-                  <SmallCard className="col-span-2 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Añadir movimiento</div>
-                        <div className="text-base font-extrabold text-neutral-900 dark:text-white">Rápido y simple</div>
-                      </div>
-                      <div className="w-full sm:w-44">
-                        <Segmented value={kind} onChange={setKind} />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado, Nómina, Netflix…" />
-
-                      <Input
-                        label="Importe"
-                        value={amount}
-                        onChange={setAmount}
-                        placeholder="Ej: 25.50"
-                        type="number"
-                        right={<span className="text-sm font-extrabold text-neutral-500">€</span>}
-                      />
-
-                      <div>
-                        <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-200">Categoría</div>
-                        <div className="flex flex-wrap gap-2">
-                          {(SUGGESTED_CATEGORIES[kind] || []).map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => setCategory(c)}
-                              className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition
-                                ${(category || "").trim() === c
-                                  ? "bg-neutral-900 text-white ring-neutral-900 dark:bg-white dark:text-neutral-900 dark:ring-white"
-                                  : "bg-white text-neutral-800 ring-neutral-200 hover:bg-neutral-50 dark:bg-white/5 dark:text-neutral-100 dark:ring-white/10 dark:hover:bg-white/10"
-                                }`}
-                            >
-                              {c}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="mt-2">
-                          <input
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            placeholder="O escribe otra…"
-                            className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:placeholder:text-neutral-400 dark:focus:ring-white/15 font-semibold"
-                          />
-                        </div>
-                      </div>
-
-                      <Button onClick={addItem} className="py-3">
-                        <Plus className="h-4 w-4" />
-                        Añadir {kind === "income" ? "ingreso" : "gasto"}
-                      </Button>
-                    </div>
-                  </SmallCard>
-
-                  {/* Tarjeta de presupuesto */}
-                  <SmallCard className="col-span-2 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Presupuesto</div>
-                        <div className="text-base font-extrabold text-neutral-900 dark:text-white">Plan vs Real</div>
-                      </div>
-                    </div>
-
-                    {/* Presupuesto total opcional */}
-                    <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-extrabold">Total del mes</div>
-                          <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
-                            Gastado: <span className="font-extrabold">{eur(totals.expense)}</span>
-                          </div>
-                        </div>
-
+                      <div className="mt-2">
                         <input
-                          type="number"
-                          placeholder="€"
-                          value={String(safeMonthData.budgetTotal || "")}
-                          onChange={(e) => {
-                            const v = Number(e.target.value || 0);
-                            setDb((prev) => {
-                              const cur = prev.months[month] || { items: [], budgets: {}, budgetTotal: 0 };
-                              return {
-                                ...prev,
-                                months: {
-                                  ...prev.months,
-                                  [month]: { ...cur, budgetTotal: v },
-                                },
-                              };
-                            });
-                          }}
-                          className="w-28 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:ring-white/15"
+                          value={category}
+                          onChange={(e) => setCategory(e.target.value)}
+                          placeholder="O escribe otra..."
+                          className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:focus:ring-white/15"
                         />
                       </div>
-
-                      {/* Barra total */}
-                      {safeMonthData.budgetTotal > 0 && (
-                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
-                          <div
-                            className={
-                              totals.expense / safeMonthData.budgetTotal < 0.7
-                                ? "h-full bg-green-500"
-                                : totals.expense / safeMonthData.budgetTotal < 0.9
-                                ? "h-full bg-amber-500"
-                                : "h-full bg-red-500"
-                            }
-                            style={{ width: `${Math.min(100, Math.round((totals.expense / safeMonthData.budgetTotal) * 100))}%` }}
-                          />
-                        </div>
-                      )}
                     </div>
 
-                    {/* Presupuesto por categorías */}
-                    <div className="mt-3 space-y-2">
-                      {SUGGESTED_CATEGORIES.expense.map((cat) => (
-                        <BudgetRow
-                          key={cat}
-                          name={cat}
-                          emoji={CATEGORY_EMOJIS[cat] ?? "🏷️"}
-                          spent={spentByCategory[cat] || 0}
-                          budget={safeMonthData.budgets?.[cat] ?? ""}
-                          onChange={(val) => {
-                            setDb((prev) => {
-                              const cur = prev.months[month] || { items: [], budgets: {}, budgetTotal: 0 };
-                              const nextBudgets = { ...(cur.budgets || {}) };
+                    <Button onClick={addItem} className="py-3">
+                      <Plus className="h-4 w-4" />
+                      Añadir {kind === "income" ? "ingreso" : "gasto"}
+                    </Button>
+                  </div>
+                </SmallCard>
 
-                              const num = Number(val);
-                              if (!val || num <= 0) delete nextBudgets[cat];
-                              else nextBudgets[cat] = num;
-
-                              return {
-                                ...prev,
-                                months: {
-                                  ...prev.months,
-                                  [month]: { ...cur, budgets: nextBudgets },
-                                },
-                              };
-                            });
-                          }}
-                        />
-                      ))}
+                {/* Presupuesto */}
+                <SmallCard className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Presupuesto</div>
+                      <div className="text-base font-extrabold text-neutral-900 dark:text-white">Plan vs Real</div>
                     </div>
-                  </SmallCard>
-                </div>
+                    <div className="text-sm font-extrabold">{eur(safeMonthData.budgetTotal || 0)}</div>
+                  </div>
 
-                {/* END LEFT_CONTENT */}
+                  <div className="mt-3">
+                    <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">Total del mes</div>
+                    <input
+                      type="number"
+                      value={String(safeMonthData.budgetTotal ?? "")}
+                      onChange={(e) => setBudgetTotal(e.target.value)}
+                      placeholder="€"
+                      className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:focus:ring-white/15"
+                    />
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {["Comida", "Casa", "Transporte", "Ocio", "Salud", "Suscripciones", "Otros"].map((cat) => (
+                      <BudgetRow
+                        key={cat}
+                        name={cat}
+                        emoji={CATEGORY_EMOJIS[cat] ?? "📌"}
+                        spent={spentByCategory[cat] || 0}
+                        budget={safeMonthData.budgets?.[cat] ?? 0}
+                        onChange={(v) => setBudgetForCategory(cat, v)}
+                      />
+                    ))}
+                  </div>
+                </SmallCard>
               </div>
             </div>
 
-            {/* DERECHA */}
+            {/* RIGHT */}
             <div className="lg:col-span-7 lg:h-full lg:overflow-hidden min-h-0">
               <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden min-h-0">
-                {/* 1) Gráfico (fijo) */}
+                {/* Gráfico */}
                 <ChartCard
                   pieData={pieData}
                   totals={totals}
                   balanceAccent={balanceAccent}
-                  eur={eur}
                   chartView={chartView}
                   setChartView={setChartView}
                   expensesByCategory={expensesByCategory}
                 />
 
-                {/** 3) Movimientos */}
+                {/* Movimientos */}
                 <SmallCard className="p-4 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden min-h-0">
                   <div className="flex items-center justify-between">
                     <div>
@@ -924,15 +805,16 @@ export default function App() {
                       <div className="text-base font-extrabold text-neutral-900 dark:text-white">Lista del mes</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 rounded-2xl border px-3 py-2 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+                      <div className="relative flex items-center gap-2 rounded-2xl border px-3 py-2 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
                         <input
                           placeholder="Buscar…"
                           value={query}
                           onChange={(e) => setQuery(e.target.value)}
                           className="w-full bg-transparent text-sm font-semibold outline-none text-neutral-900 placeholder:text-neutral-400 dark:text-white dark:placeholder:text-neutral-400"
                         />
-                        <Search className="absolute right-3 top-2.5 h-4 w-4 text-neutral-400" />
+                        <Search className="h-4 w-4 text-neutral-400" />
                       </div>
+
                       <select
                         value={filterKind}
                         onChange={(e) => setFilterKind(e.target.value)}
@@ -948,7 +830,9 @@ export default function App() {
                   <div className="mt-3 space-y-2 lg:flex-1 lg:overflow-auto lg:pr-2 min-h-0">
                     <AnimatePresence>
                       {filteredItems.length === 0 ? (
-                        <div className="rounded-2xl bg-neutral-50 p-4 text-center text-sm text-neutral-500">No hay movimientos</div>
+                        <div className="rounded-2xl bg-neutral-50 p-4 text-center text-sm text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
+                          No hay movimientos
+                        </div>
                       ) : (
                         filteredItems.map((it) => (
                           <motion.div
@@ -959,19 +843,25 @@ export default function App() {
                             className="flex items-center justify-between rounded-3xl border p-4 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)]"
                           >
                             <div className="flex items-center gap-3">
-                              <Badge label={it.category} />
+                              <Badge label={it.category || "Otros"} />
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-extrabold text-neutral-900 dark:text-white">{it.name}</div>
-                                <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">{new Date(it.createdAt).toLocaleString("es-ES")}</div>
-                                                            {/* Si la categoría es "Extra" u "Otros" y se muestra como texto simple */}
-                                                            {['Extra', 'Otros'].includes(it.category) && (
-                                                              <div className="text-xs font-bold text-neutral-600 dark:text-neutral-200">{it.category}</div>
-                                                            )}
+                                <div className="truncate text-sm font-extrabold text-neutral-900 dark:text-white">
+                                  {it.name}
+                                </div>
+                                <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
+                                  {new Date(it.createdAt).toLocaleString("es-ES")}
+                                </div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                              <div className={`font-extrabold ${it.kind === 'income' ? 'text-green-700' : 'text-red-700'}`}>{eur(it.amount)}</div>
+                              <div
+                                className={`font-extrabold ${
+                                  it.kind === "income" ? "text-green-700" : "text-red-700"
+                                }`}
+                              >
+                                {eur(it.amount)}
+                              </div>
                               <button
                                 onClick={() => removeItem(it.id)}
                                 className="inline-flex items-center justify-center rounded-2xl p-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
@@ -988,8 +878,6 @@ export default function App() {
               </div>
             </div>
           </div>
-
-          
         </div>
       </div>
     </div>
