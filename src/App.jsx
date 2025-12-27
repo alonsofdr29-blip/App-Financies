@@ -200,7 +200,9 @@ function BudgetRow({ name, emoji, spent, budget, onChange }) {
           ) : (
             <>
               Te pasas por{" "}
-              <span className="font-extrabold text-red-600 dark:text-red-400">{eur(Math.abs(remaining))}</span>
+              <span className="font-extrabold text-red-600 dark:text-red-400">
+                {eur(Math.abs(remaining))}
+              </span>
             </>
           )}
         </div>
