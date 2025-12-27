@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import "./index.css";
 import {
   Plus,
@@ -17,6 +16,7 @@ import Button from "./components/ui/Button";
 import Badge from "./components/ui/Badge";
 import Segmented from "./components/ui/Segmented";
 import Input from "./components/ui/Input";
+import ChartCard from "./components/ChartCard";
 
 /* =========================
    Constantes / Helpers
@@ -87,6 +87,14 @@ function clampNumber(v) {
 function exportJSON(db) {
       setDb(parsed);
 function Button({ children, onClick, variant = "primary", type = "button", className = "", title }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      className={className}
+      title={title}
+    >
+      {children}
     </button>
   );
 }
@@ -224,88 +232,6 @@ function BudgetRow({ name, emoji, spent, budget, onChange }) {
   );
 }
 
-function ChartCard({
-  pieData,
-  totals,
-  balanceAccent,
-  chartView,
-  setChartView,
-  expensesByCategory,
-}) {
-  const chartData = chartView === "categories" ? expensesByCategory : pieData;
-
-  return (
-    <SmallCard className="p-4">
-      <div className="rounded-3xl bg-neutral-50 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10 p-4">
-        <div className="relative mt-3 h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart key={`${chartView}-${chartData.length}`}>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius="65%"
-                outerRadius="90%"
-                paddingAngle={2}
-                stroke="none"
-                isAnimationActive={false}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry?.color ?? CHART_COLORS.neutral} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value, name) => [eur(value), name]} contentStyle={{ borderRadius: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-
-          {chartView === "balance" && (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center">
-              <div className="rounded-3xl bg-white/90 px-4 py-3 text-center shadow-sm ring-1 ring-neutral-200 backdrop-blur dark:bg-neutral-900/70 dark:ring-white/10">
-                <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Balance</div>
-                <div className={`text-lg font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {chartData.map((x) => (
-            <span
-              key={x.name}
-              className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold ring-1 ring-neutral-200 dark:bg-neutral-900/80 dark:ring-neutral-700"
-            >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: x?.color ?? CHART_COLORS.neutral }} />
-              {x.name}: <span className="font-extrabold">{eur(x.value)}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          onClick={() => setChartView("balance")}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-            chartView === "balance"
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"
-          }`}
-        >
-          Balance
-        </button>
-        <button
-          onClick={() => setChartView("categories")}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-            chartView === "categories"
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "bg-white/70 text-neutral-700 dark:bg-white/10 dark:text-neutral-300"
-          }`}
-        >
-          Categorías
-        </button>
-      </div>
-    </SmallCard>
-  );
-}
 
 /* =========================
    App
@@ -720,6 +646,8 @@ export default function App() {
                   chartView={chartView}
                   setChartView={setChartView}
                   expensesByCategory={expensesByCategory}
+                  eur={eur}
+                  neutralColor={CHART_COLORS.neutral}
                 />
 
                 {/* Movimientos */}
