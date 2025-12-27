@@ -11,12 +11,13 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
 import SmallCard from "./components/ui/SmallCard";
 import Button from "./components/ui/Button";
 import Badge from "./components/ui/Badge";
 import Segmented from "./components/ui/Segmented";
 import Input from "./components/ui/Input";
-import ChartCard from "./components/ChartCard";
+import ChartCard from "./components/ui/ChartCard";
 
 /* =========================
    Constantes / Helpers
@@ -84,82 +85,58 @@ function eur(n) {
   }).format(Number(n) || 0);
 }
 function clampNumber(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+function uid() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { months: {} };
+    const parsed = JSON.parse(raw);
+    if (!parsed?.months) return { months: {} };
+    return parsed;
+  } catch {
+    return { months: {} };
+  }
+}
+function saveDB(db) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
 function exportJSON(db) {
+  const data = JSON.stringify(db, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "finanzas.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file, setDb) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || ""));
+      if (!parsed?.months) throw new Error("Formato inválido");
       setDb(parsed);
-function Button({ children, onClick, variant = "primary", type = "button", className = "", title }) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      className={className}
-      title={title}
-    >
-      {children}
-    </button>
-  );
+      alert("Importación completada ✅");
+    } catch {
+      alert("No he podido importar ese archivo (JSON inválido).");
+    }
+  };
+  reader.readAsText(file);
 }
 
-function Badge({ label }) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1",
-        "bg-neutral-50 ring-neutral-200 text-neutral-800",
-        "dark:bg-white/10 dark:ring-white/10 dark:text-neutral-100",
-      ].join(" ")}
-    >
-      <span className="text-sm leading-none">{CATEGORY_EMOJIS[label] ?? "🏷️"}</span>
-      {label}
-    </span>
-  );
-}
-
-function Segmented({ value, onChange }) {
-  return (
-    <div className="grid grid-cols-2 rounded-2xl bg-neutral-100 p-1 dark:bg-white/10">
-      <button
-        className={`rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-          value === "expense"
-            ? "bg-white shadow-sm dark:bg-white/15 dark:text-neutral-100"
-            : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
-        }`}
-        onClick={() => onChange("expense")}
-        type="button"
-      >
-        Gasto
-      </button>
-      <button
-        className={`rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-          value === "income"
-            ? "bg-white shadow-sm dark:bg-white/15 dark:text-neutral-100"
-            : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
-        }`}
-        onClick={() => onChange("income")}
-        type="button"
-      >
-        Ingreso
-      </button>
-    </div>
-  );
-}
-
-function Input({ label, value, onChange, placeholder, type = "text", right }) {
-  return (
-    <label className="block">
-      <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">{label}</div>
-      <div className="relative">
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-2xl border px-3 py-3 text-sm outline-none border-neutral-200 bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:border-white/10 dark:bg-white/5 dark:text-neutral-100 dark:placeholder:text-neutral-400 dark:focus:ring-white/15"
-        />
-        {right ? <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">{right}</div> : null}
-      </div>
-    </label>
-  );
-}
+/* =========================
+   Presupuesto row
+========================= */
 
 function BudgetRow({ name, emoji, spent, budget, onChange }) {
   const b = Number(budget || 0);
@@ -182,7 +159,7 @@ function BudgetRow({ name, emoji, spent, budget, onChange }) {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-                              <Badge label={it.category} emoji={CATEGORY_EMOJIS[it.category || "Otros"]} />
+            <span className="text-lg">{emoji}</span>
             <div className="truncate text-sm font-extrabold">{name}</div>
           </div>
           <div className="mt-1 text-xs font-semibold text-neutral-500 dark:text-neutral-300">
@@ -232,7 +209,6 @@ function BudgetRow({ name, emoji, spent, budget, onChange }) {
   );
 }
 
-
 /* =========================
    App
 ========================= */
@@ -246,21 +222,19 @@ export default function App() {
     return v ? v === "dark" : false;
   });
 
-  const [kind, setKind] = useState("expense"); // expense | income
+  const [kind, setKind] = useState("expense");
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
-  const [chartView, setChartView] = useState("balance"); // balance | categories
+  const [chartView, setChartView] = useState("balance");
   const [query, setQuery] = useState("");
-  const [filterKind, setFilterKind] = useState("all"); // all | income | expense
+  const [filterKind, setFilterKind] = useState("all");
 
   const fileInputRef = useRef(null);
 
-  // Persist DB
   useEffect(() => saveDB(db), [db]);
 
-  // Theme
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) {
@@ -272,7 +246,6 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Ensure month exists
   useEffect(() => {
     setDb((prev) => {
       if (prev.months?.[month]) return prev;
@@ -322,10 +295,10 @@ export default function App() {
       map[cat] = (map[cat] || 0) + (Number(it.amount) || 0);
     }
     let arr = Object.entries(map)
-      .map(([name, value]) => ({
-        name,
+      .map(([n, value]) => ({
+        name: n,
         value,
-        color: CATEGORY_META[name]?.color || CHART_COLORS.neutral,
+        color: CATEGORY_META[n]?.color || CHART_COLORS.neutral,
       }))
       .sort((a, b) => b.value - a.value);
 
@@ -333,9 +306,10 @@ export default function App() {
       const top = arr.slice(0, 5);
       const rest = arr.slice(5);
       const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
-      return [...top, { name: "Otros", value: otrosValue, color: CATEGORY_META["Otros"]?.color || CHART_COLORS.neutral }].filter(
-        (c) => c.value > 0
-      );
+      return [
+        ...top,
+        { name: "Otros", value: otrosValue, color: CATEGORY_META["Otros"]?.color || CHART_COLORS.neutral },
+      ].filter((c) => c.value > 0);
     }
     return arr.filter((c) => c.value > 0);
   }, [safeMonthData.items]);
@@ -563,6 +537,7 @@ export default function App() {
                       type="number"
                       right={<span className="text-sm font-extrabold text-neutral-500">€</span>}
                     />
+
                     <div>
                       <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">Categoría</div>
                       <div className="flex flex-wrap gap-2">
@@ -638,7 +613,6 @@ export default function App() {
             {/* RIGHT */}
             <div className="lg:col-span-7 lg:h-full lg:overflow-hidden min-h-0">
               <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden min-h-0">
-                {/* Gráfico */}
                 <ChartCard
                   pieData={pieData}
                   totals={totals}
@@ -657,6 +631,7 @@ export default function App() {
                       <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-300">Movimientos</div>
                       <div className="text-base font-extrabold text-neutral-900 dark:text-white">Lista del mes</div>
                     </div>
+
                     <div className="flex items-center gap-2">
                       <div className="relative flex items-center gap-2 rounded-2xl border px-3 py-2 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
                         <input
@@ -696,7 +671,10 @@ export default function App() {
                             className="flex items-center justify-between rounded-3xl border p-4 border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)]"
                           >
                             <div className="flex items-center gap-3">
-                              <Badge label={it.category || "Otros"} />
+                              <Badge
+                                label={it.category || "Otros"}
+                                emoji={CATEGORY_EMOJIS[it.category || "Otros"]}
+                              />
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-extrabold text-neutral-900 dark:text-white">
                                   {it.name}
@@ -718,6 +696,7 @@ export default function App() {
                               <button
                                 onClick={() => removeItem(it.id)}
                                 className="inline-flex items-center justify-center rounded-2xl p-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
+                                type="button"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
