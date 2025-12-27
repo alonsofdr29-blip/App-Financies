@@ -70,13 +70,14 @@ export default function App() {
   // ...después de definir safeMonthData...
   const spentByCategory = useMemo(() => {
     const m = {};
+    if (!safeMonthData || !safeMonthData.items) return m;
     for (const it of safeMonthData.items) {
       if (it.kind !== "expense") continue;
       const cat = it.category || "Otros";
       m[cat] = (m[cat] || 0) + it.amount;
     }
     return m;
-  }, [safeMonthData.items]);
+  }, [safeMonthData]);
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
