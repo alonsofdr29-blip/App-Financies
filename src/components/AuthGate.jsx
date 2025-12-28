@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import Login from "./Login";
+import Login from "./Login.jsx";
 
 export default function AuthGate({ children, fallback }) {
   const [session, setSession] = useState(null);
