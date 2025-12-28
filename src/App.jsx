@@ -421,14 +421,12 @@ export default function App() {
       const cat = it.category || "Otros";
       m[cat] = (m[cat] || 0) + (Number(it.amount) || 0);
     }
-    return m;
-  }, [safeMonthData.items]);
-
-  return (
-    <AuthGate fallback={<div style={{ padding: 24 }}>Cargando sesión…</div>}>
-      <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
-        <div className="pointer-events-none fixed inset-0 dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(16,185,129,0.14),transparent_60%)]" />
-        <div className="relative">
+    return (
+      <AuthGate>
+        {/* TODO tu app aquí dentro */}
+        <div>...</div>
+      </AuthGate>
+    );
           <div className="mx-auto w-full px-4 py-4 lg:px-8 lg:py-4 lg:h-[calc(100vh-24px)]">
             {/* Header */}
             <div className="flex items-center justify-between">

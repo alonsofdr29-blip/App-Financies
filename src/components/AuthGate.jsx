@@ -1,5 +1,7 @@
 
 
+
+
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Login from "./Login";
@@ -7,17 +9,14 @@ import Login from "./Login";
 export default function AuthGate({ children, fallback }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  console.log("AuthGate render", { loading, hasSession: !!session });
 
   useEffect(() => {
     let mounted = true;
 
-
     async function init() {
-      const { data, error } = await supabase.auth.getSession();
-      console.log("getSession", { session: data?.session, error });
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setSession(data?.session ?? null);
+      setSession(data.session ?? null);
       setLoading(false);
     }
 
