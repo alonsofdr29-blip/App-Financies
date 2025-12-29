@@ -20,10 +20,15 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const redirectTo = `${window.location.origin}/`;
+      const redirectTo = import.meta.env.PROD
+        ? "https://app-financies.vercel.app/"
+        : "http://localhost:5173/";
+
       const { error } = await supabase.auth.signInWithOtp({
         email: clean,
-        options: { emailRedirectTo: redirectTo },
+        options: {
+          emailRedirectTo: redirectTo,
+        },
       });
 
       if (error) throw error;
@@ -46,7 +51,9 @@ export default function Login() {
 
         <form onSubmit={sendMagicLink} className="mt-5 space-y-3">
           <label className="block">
-            <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">Email</div>
+            <div className="mb-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+              Email
+            </div>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
