@@ -1,7 +1,3 @@
-
-
-
-
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Login from "./Login.jsx";
@@ -14,10 +10,44 @@ export default function AuthGate({ children, fallback }) {
     let mounted = true;
 
     async function init() {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(data.session ?? null);
-      setLoading(false);
+      try {
+        // ✅ 1) Si viene ?code=... (PKCE), intercambiar por sesión
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (error) throw error;
+
+          // Limpia ?code=...
+          url.searchParams.delete("code");
+          window.history.replaceState({}, document.title, url.toString());
+        }
+
+        // ✅ 2) Si viene #access_token=... u otros params en el hash, limpiar el hash
+        // (algunas configs de Supabase usan hash tokens)
+        if (window.location.hash && window.location.hash.includes("access_token")) {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname + window.location.search
+          );
+        }
+
+        // ✅ 3) Obtener sesión normal
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (!mounted) return;
+        setSession(data.session ?? null);
+      } catch (e) {
+        console.error("AuthGate init error:", e);
+        if (!mounted) return;
+        setSession(null);
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
     }
 
     init();
@@ -35,12 +65,5 @@ export default function AuthGate({ children, fallback }) {
   if (loading) return fallback ?? <div style={{ padding: 24 }}>Cargando sesión…</div>;
   if (!session) return <Login />;
 
-  return (
-    <>
-      <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
-        {/* TODO tu contenido igual */}
-        {children}
-      </div>
-    </>
-  );
+  return <>{children}</>;
 }
