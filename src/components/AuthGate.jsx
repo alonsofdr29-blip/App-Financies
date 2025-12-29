@@ -32,8 +32,15 @@ export default function AuthGate({ children, fallback }) {
     };
   }, []);
 
-  if (loading) return fallback ?? <div style={{ padding: 24 }}>Cargando…</div>;
+  if (loading) return fallback ?? <div style={{ padding: 24 }}>Cargando sesión…</div>;
   if (!session) return <Login />;
 
-  return children;
+  return (
+    <>
+      <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
+        {/* TODO tu contenido igual */}
+        {children}
+      </div>
+    </>
+  );
 }
