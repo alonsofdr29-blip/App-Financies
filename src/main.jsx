@@ -8,10 +8,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
-import { registerSW } from "virtual:pwa-register";
 
-registerSW({
-  onNeedRefresh() {
-    window.location.reload();
-  },
-});
+// Desactiva SW para evitar que una versión antigua quede atrapada en caché.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => registration.unregister());
+  });
+}
