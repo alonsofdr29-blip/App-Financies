@@ -19,9 +19,6 @@ import Segmented from "./components/ui/Segmented";
 import Input from "./components/ui/Input";
 import ChartCard from "./components/ui/ChartCard";
 
-// ✅ AÑADIDO: Gate de autenticación
-import AuthGate from "./components/AuthGate";
-
 /* =========================
    Constantes / Helpers
 ========================= */
@@ -425,7 +422,6 @@ export default function App() {
   }, [safeMonthData.items]);
 
   return (
-    <AuthGate fallback={<div style={{ padding: 24 }}>Cargando…</div>}>
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
       <div className="pointer-events-none fixed inset-0 dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(16,185,129,0.14),transparent_60%)]" />
       <div className="relative">
@@ -720,6 +716,5 @@ export default function App() {
           </div>
         </div>
       </div>
-    </AuthGate>
   );
 }

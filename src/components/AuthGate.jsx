@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import Login from "./Login.jsx";
 
 export default function AuthGate({ children, fallback }) {
@@ -9,37 +9,55 @@ export default function AuthGate({ children, fallback }) {
   useEffect(() => {
     let mounted = true;
 
+    if (!isSupabaseConfigured || !supabase) {
+      setSession(null);
+      setLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     async function init() {
       try {
-        // ✅ 1) Si viene ?code=... (PKCE), intercambiar por sesión
+        // Procesa callbacks de auth de Supabase en varios formatos:
+        // 1) ?code=... (PKCE)
+        // 2) ?token_hash=...&type=... (magic link / recovery)
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
+        const tokenHash = url.searchParams.get("token_hash");
+        const otpType = url.searchParams.get("type");
 
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-
-          // Limpia ?code=...
-          url.searchParams.delete("code");
-          window.history.replaceState({}, document.title, url.toString());
         }
 
-        // ✅ 2) Si viene #access_token=... u otros params en el hash, limpiar el hash
-        // (algunas configs de Supabase usan hash tokens)
-        if (window.location.hash && window.location.hash.includes("access_token")) {
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname + window.location.search
-          );
+        if (tokenHash && otpType) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: otpType,
+          });
+          if (error) throw error;
         }
 
-        // ✅ 3) Obtener sesión normal
+        // Obtener sesión después del posible intercambio de código.
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
 
         if (!mounted) return;
         setSession(data.session ?? null);
+
+        // Limpia parámetros/hash de auth solo cuando ya hay sesión.
+        if (data.session) {
+          url.searchParams.delete("code");
+          url.searchParams.delete("token_hash");
+          url.searchParams.delete("type");
+          url.searchParams.delete("next");
+          const cleanedPath = url.pathname + url.search;
+          if (window.location.pathname + window.location.search + window.location.hash !== cleanedPath) {
+            window.history.replaceState({}, document.title, cleanedPath);
+          }
+        }
       } catch (e) {
         console.error("AuthGate init error:", e);
         if (!mounted) return;

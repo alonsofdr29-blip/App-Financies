@@ -1,16 +1,104 @@
-import React, { useState } from "react";
-import { supabase } from "../lib/supabase";
+import React, { useEffect, useState } from "react";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
+
+const EMAIL_COOLDOWN_SECONDS = 60;
+const LOGIN_COOLDOWN_KEY = "finanzas_login_cooldown_until";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [cooldownUntil, setCooldownUntil] = useState(() => {
+    const stored = Number(localStorage.getItem(LOGIN_COOLDOWN_KEY) || 0);
+    return Number.isFinite(stored) ? stored : 0;
+  });
+  const [now, setNow] = useState(Date.now());
+
+  const secondsLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const isCooldownActive = secondsLeft > 0;
+
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const queryParams = new URLSearchParams(window.location.search);
+
+    const authError = hashParams.get("error") || queryParams.get("error");
+    const authDescription =
+      hashParams.get("error_description") || queryParams.get("error_description") || "";
+
+    if (!authError) return;
+
+    const decodedDescription = decodeURIComponent(authDescription.replace(/\+/g, " ")).toLowerCase();
+    let message = "El enlace de acceso no es válido. Solicita uno nuevo.";
+
+    if (authError === "access_denied" && decodedDescription.includes("redirect")) {
+      message = "Inicio bloqueado: falta configurar la URL de redirección en Supabase Auth.";
+    } else if (decodedDescription.includes("expired") || decodedDescription.includes("invalid")) {
+      message = "El enlace expiró o ya fue usado. Pide un enlace nuevo.";
+    }
+
+    setErr(message);
+
+    // Limpia parámetros de error del callback para evitar confusión en recargas.
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }, []);
+
+  useEffect(() => {
+    if (!cooldownUntil) return undefined;
+    const intervalId = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= cooldownUntil) {
+        window.clearInterval(intervalId);
+      }
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [cooldownUntil]);
+
+  function startCooldown(seconds = EMAIL_COOLDOWN_SECONDS) {
+    const until = Date.now() + seconds * 1000;
+    setNow(Date.now());
+    setCooldownUntil(until);
+    localStorage.setItem(LOGIN_COOLDOWN_KEY, String(until));
+  }
+
+  function clearCooldown() {
+    setCooldownUntil(0);
+    localStorage.removeItem(LOGIN_COOLDOWN_KEY);
+  }
+
+  function parseRetrySeconds(error) {
+    const status = Number(error?.status);
+    const code = String(error?.code || "").toLowerCase();
+    const name = String(error?.name || "").toLowerCase();
+    const rawMessage = String(error?.message || "").toLowerCase();
+
+    const isRateLimited =
+      status === 429 ||
+      rawMessage.includes("rate limit") ||
+      code.includes("rate") ||
+      name.includes("rate");
+
+    if (!isRateLimited) return null;
+
+    const minutesMatch = rawMessage.match(/(\d+)\s*(minute|min)/);
+    if (minutesMatch) return Number(minutesMatch[1]) * 60;
+
+    const secondsMatch = rawMessage.match(/(\d+)\s*(second|sec|s)/);
+    if (secondsMatch) return Number(secondsMatch[1]);
+
+    return EMAIL_COOLDOWN_SECONDS;
+  }
 
   async function sendMagicLink(e) {
     e.preventDefault();
     setErr("");
     setMsg("");
+
+    if (!isSupabaseConfigured || !supabase) {
+      setErr("Configuración faltante: revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en Vercel.");
+      return;
+    }
 
     const clean = email.trim();
     if (!clean) {
@@ -18,11 +106,14 @@ export default function Login() {
       return;
     }
 
+    if (isCooldownActive) {
+      setErr(`Espera ${secondsLeft}s antes de pedir otro enlace.`);
+      return;
+    }
+
     setLoading(true);
     try {
-      const redirectTo = import.meta.env.PROD
-        ? "https://app-financies.vercel.app/"
-        : "http://localhost:5173/";
+      const redirectTo = window.location.origin + "/";
 
       const { error } = await supabase.auth.signInWithOtp({
         email: clean,
@@ -34,8 +125,24 @@ export default function Login() {
       if (error) throw error;
 
       setMsg("Te he enviado un enlace al correo ✅ (mira también spam).");
+      startCooldown();
     } catch (e) {
-      setErr(e?.message || "No se pudo iniciar sesión.");
+      const rawMessage = String(e?.message || "").toLowerCase();
+      const retrySeconds = parseRetrySeconds(e);
+      if (retrySeconds) {
+        setErr(`Has pedido demasiados enlaces. Espera ${retrySeconds}s y vuelve a intentarlo.`);
+        startCooldown(retrySeconds);
+      } else if (
+        e instanceof TypeError ||
+        rawMessage.includes("failed to fetch") ||
+        rawMessage.includes("networkerror")
+      ) {
+        clearCooldown();
+        setErr("No hay conexión con Auth. Revisa internet, bloqueadores del navegador y variables de Vercel.");
+      } else {
+        clearCooldown();
+        setErr("No se pudo enviar el enlace. Revisa tu correo e inténtalo de nuevo.");
+      }
     } finally {
       setLoading(false);
     }
@@ -64,10 +171,10 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isCooldownActive}
             className="w-full rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-60"
           >
-            {loading ? "Enviando…" : "Enviar enlace"}
+            {loading ? "Enviando…" : isCooldownActive ? `Reintentar en ${secondsLeft}s` : "Enviar enlace"}
           </button>
 
           {err ? <div className="text-sm font-semibold text-red-600">{err}</div> : null}
