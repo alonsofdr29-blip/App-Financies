@@ -11,14 +11,14 @@ export default function Button({
     "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
     primary:
-      "bg-neutral-900 text-white hover:bg-neutral-800 " +
-      "dark:bg-white dark:text-neutral-900 dark:hover:bg-white/90",
+      "bg-gradient-to-r from-blue-700 to-cyan-600 text-white shadow-[0_8px_20px_rgba(14,116,144,0.25)] hover:from-blue-600 hover:to-cyan-500 " +
+      "dark:from-blue-600 dark:to-cyan-500 dark:hover:from-blue-500 dark:hover:to-cyan-400",
     soft:
-      "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 " +
-      "dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15",
+      "bg-slate-100 text-slate-800 hover:bg-slate-200 " +
+      "dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-700",
     ghost:
-      "bg-transparent text-neutral-900 hover:bg-neutral-100 " +
-      "dark:text-neutral-100 dark:hover:bg-white/10",
+      "bg-transparent text-slate-800 hover:bg-slate-100 " +
+      "dark:text-slate-100 dark:hover:bg-slate-800/70",
     danger: "bg-red-600 text-white hover:bg-red-500",
   };
 

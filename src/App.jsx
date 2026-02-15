@@ -422,14 +422,14 @@ export default function App() {
   }, [safeMonthData.items]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#0B0F1A] dark:text-neutral-100">
-      <div className="pointer-events-none fixed inset-0 dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(16,185,129,0.14),transparent_60%)]" />
+    <div className="min-h-screen text-slate-900 dark:text-slate-100">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(900px_500px_at_10%_0%,rgba(56,189,248,0.16),transparent_60%),radial-gradient(900px_600px_at_90%_10%,rgba(59,130,246,0.14),transparent_60%)] dark:bg-[radial-gradient(900px_600px_at_20%_0%,rgba(59,130,246,0.2),transparent_60%),radial-gradient(700px_500px_at_80%_20%,rgba(14,165,233,0.18),transparent_60%)]" />
       <div className="relative">
         <div className="mx-auto w-full px-4 py-4 lg:px-8 lg:py-4 lg:h-[calc(100vh-24px)]">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-neutral-900 text-white shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-700 to-cyan-600 text-white shadow-[0_10px_24px_rgba(14,116,144,0.3)]">
                   <Wallet className="h-6 w-6" />
                 </div>
                 <div>
