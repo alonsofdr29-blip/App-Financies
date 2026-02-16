@@ -212,6 +212,94 @@ function StatTile({ label, value, hint, icon: Icon, tone = "neutral" }) {
   );
 }
 
+// Componente de gráfico circular simple con SVG
+function SimplePieChart({ data, centerLabel, centerValue, balanceAccent, isBalance }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+        Sin datos para mostrar
+      </div>
+    );
+  }
+
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  if (total === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+        Sin datos para mostrar
+      </div>
+    );
+  }
+
+  let currentAngle = -90; // Empezar desde arriba
+  const radius = 90;
+  const innerRadius = 56;
+  const centerX = 120;
+  const centerY = 120;
+
+  const slices = data.map((item, index) => {
+    const percentage = (item.value / total) * 100;
+    const angle = (percentage / 100) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    currentAngle = endAngle;
+
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+
+    const x1 = centerX + radius * Math.cos(startRad);
+    const y1 = centerY + radius * Math.sin(startRad);
+    const x2 = centerX + radius * Math.cos(endRad);
+    const y2 = centerY + radius * Math.sin(endRad);
+
+    const x3 = centerX + innerRadius * Math.cos(endRad);
+    const y3 = centerY + innerRadius * Math.sin(endRad);
+    const x4 = centerX + innerRadius * Math.cos(startRad);
+    const y4 = centerY + innerRadius * Math.sin(startRad);
+
+    const largeArc = angle > 180 ? 1 : 0;
+
+    const pathData = [
+      `M ${x1} ${y1}`,
+      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+      `L ${x3} ${y3}`,
+      `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4}`,
+      'Z'
+    ].join(' ');
+
+    return {
+      path: pathData,
+      color: item.color || CHART_COLORS.neutral,
+      name: item.name,
+      value: item.value,
+      percentage: percentage.toFixed(1)
+    };
+  });
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center">
+      <svg width="240" height="240" viewBox="0 0 240 240" className="transform">
+        {slices.map((slice, index) => (
+          <g key={index}>
+            <path
+              d={slice.path}
+              fill={slice.color}
+              className="transition-all duration-300 hover:opacity-80"
+            />
+          </g>
+        ))}
+      </svg>
+      
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="rounded-2xl bg-white/90 px-4 py-2 text-center shadow-sm ring-1 ring-slate-300 backdrop-blur dark:bg-slate-900/85 dark:ring-slate-700">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">{centerLabel}</div>
+          <div className={`text-lg font-extrabold ${isBalance ? balanceAccent : "text-rose-700 dark:text-rose-400"}`}>{centerValue}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [db, setDb] = useState(() => loadDB());
   const [month, setMonth] = useState(() => monthKeyFromDate(new Date()));
@@ -228,6 +316,7 @@ export default function App() {
 
   const [query, setQuery] = useState("");
   const [filterKind, setFilterKind] = useState("all");
+  const [chartView, setChartView] = useState("balance");
 
   const fileInputRef = useRef(null);
 
@@ -405,6 +494,43 @@ export default function App() {
     }
     return m;
   }, [safeMonthData.items]);
+
+  // Datos para el gráfico circular por categorías
+  const expensesByCategory = useMemo(() => {
+    const map = {};
+    for (const it of safeMonthData.items) {
+      if (it.kind !== "expense") continue;
+      const cat = it.category || "Otros";
+      map[cat] = (map[cat] || 0) + (Number(it.amount) || 0);
+    }
+    let arr = Object.entries(map)
+      .map(([n, value]) => ({
+        name: n,
+        value,
+        color: CATEGORY_META[n]?.color || CHART_COLORS.neutral,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    if (arr.length > 6) {
+      const top = arr.slice(0, 5);
+      const rest = arr.slice(5);
+      const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
+      return [...top, { name: "Otros", value: otrosValue, color: CATEGORY_META.Otros.color || CHART_COLORS.neutral }].filter(
+        (c) => c.value > 0
+      );
+    }
+    return arr.filter((c) => c.value > 0);
+  }, [safeMonthData.items]);
+
+  // Datos para el gráfico circular de balance general
+  const pieData = useMemo(() => {
+    const data = [];
+    if (totals.income > 0) data.push({ name: "Ingresos", value: totals.income, color: CHART_COLORS.income });
+    if (totals.expense > 0) data.push({ name: "Gastos", value: totals.expense, color: CHART_COLORS.expense });
+    if (totals.balance > 0) data.push({ name: "Ahorro", value: totals.balance, color: CHART_COLORS.savings });
+    if (data.length === 0) return [{ name: "Sin datos", value: 1, color: CHART_COLORS.neutral }];
+    return data;
+  }, [totals]);
 
   // Comparación entre meses - últimos 6 meses
   const monthComparison = useMemo(() => {
@@ -828,6 +954,70 @@ export default function App() {
           </div>
 
           <div className="lg:col-span-7">
+            <div className="space-y-4">
+              {/* Gráfico circular */}
+              <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/78">
+                <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 dark:border-slate-700 dark:from-slate-900/80 dark:to-slate-900/55">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Visualización</p>
+                      <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                        {chartView === "balance" ? "Balance general" : "Gasto por categoría"}
+                      </h3>
+                    </div>
+
+                    <div className="inline-flex rounded-full border border-slate-300 bg-white p-1 dark:border-slate-700 dark:bg-slate-800/70">
+                      <button
+                        onClick={() => setChartView("balance")}
+                        className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                          chartView === "balance"
+                            ? "bg-slate-900 text-white dark:bg-cyan-600 dark:text-slate-950"
+                            : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/70"
+                        }`}
+                        type="button"
+                      >
+                        Balance
+                      </button>
+                      <button
+                        onClick={() => setChartView("categories")}
+                        className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                          chartView === "categories"
+                            ? "bg-slate-900 text-white dark:bg-cyan-600 dark:text-slate-950"
+                            : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/70"
+                        }`}
+                        type="button"
+                      >
+                        Categorías
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SVG Pie Chart */}
+                  <div className="relative mt-4 flex items-center justify-center" style={{ height: '240px' }}>
+                    <SimplePieChart 
+                      data={chartView === "categories" ? expensesByCategory : pieData}
+                      centerLabel={chartView === "balance" ? "Balance neto" : "Gasto total"}
+                      centerValue={chartView === "balance" ? eur(totals.balance) : eur(totals.expense)}
+                      balanceAccent={totals.balance >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}
+                      isBalance={chartView === "balance"}
+                    />
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(chartView === "categories" ? expensesByCategory : pieData).map((x) => (
+                      <span
+                        key={x.name}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-1 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900/80"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: x?.color || CHART_COLORS.neutral }} />
+                        {x.name}: <span className="font-extrabold">{eur(x.value)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de movimientos */}
             <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/78">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
