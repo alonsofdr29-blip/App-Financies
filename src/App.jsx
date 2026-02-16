@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "./index.css";
 import {
   Plus,
   Trash2,
@@ -12,18 +11,13 @@ import {
   CalendarDays,
   Sun,
   Moon,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
-import SmallCard from "./components/ui/SmallCard";
-import Button from "./components/ui/Button";
-import Badge from "./components/ui/Badge";
-import Segmented from "./components/ui/Segmented";
-import Input from "./components/ui/Input";
-import ChartCard from "./components/ui/ChartCard";
-
-const THEME_KEY = "finanzas_theme";
 const STORAGE_KEY = "finanzas_personales_v2";
+const THEME_KEY = "finanzas_theme";
 
 const CHART_COLORS = {
   income: "#0f766e",
@@ -232,7 +226,6 @@ export default function App() {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
-  const [chartView, setChartView] = useState("balance");
   const [query, setQuery] = useState("");
   const [filterKind, setFilterKind] = useState("all");
 
@@ -291,12 +284,6 @@ export default function App() {
   );
 
   const averageExpense = expenseItemsCount > 0 ? totals.expense / expenseItemsCount : 0;
-  const balanceAccent =
-    totals.balance > 0
-      ? "text-emerald-700 dark:text-emerald-400"
-      : totals.balance < 0
-      ? "text-rose-700 dark:text-rose-400"
-      : "text-slate-900 dark:text-slate-100";
 
   const budgetTotal = Number(safeMonthData.budgetTotal || 0);
   const budgetProgress = budgetTotal > 0 ? Math.min(100, Math.round((totals.expense / budgetTotal) * 100)) : 0;
@@ -322,41 +309,6 @@ export default function App() {
     safeMonthData.items[0]?.createdAt != null
       ? new Date(safeMonthData.items[0].createdAt).toLocaleDateString("es-ES")
       : "Sin movimientos";
-
-  const expensesByCategory = useMemo(() => {
-    const map = {};
-    for (const it of safeMonthData.items) {
-      if (it.kind !== "expense") continue;
-      const cat = it.category || "Otros";
-      map[cat] = (map[cat] || 0) + (Number(it.amount) || 0);
-    }
-    let arr = Object.entries(map)
-      .map(([n, value]) => ({
-        name: n,
-        value,
-        color: CATEGORY_META[n]?.color || CHART_COLORS.neutral,
-      }))
-      .sort((a, b) => b.value - a.value);
-
-    if (arr.length > 6) {
-      const top = arr.slice(0, 5);
-      const rest = arr.slice(5);
-      const otrosValue = rest.reduce((sum, c) => sum + c.value, 0);
-      return [...top, { name: "Otros", value: otrosValue, color: CATEGORY_META.Otros.color || CHART_COLORS.neutral }].filter(
-        (c) => c.value > 0
-      );
-    }
-    return arr.filter((c) => c.value > 0);
-  }, [safeMonthData.items]);
-
-  const pieData = useMemo(() => {
-    const data = [];
-    if (totals.income > 0) data.push({ name: "Ingresos", value: totals.income, color: CHART_COLORS.income });
-    if (totals.expense > 0) data.push({ name: "Gastos", value: totals.expense, color: CHART_COLORS.expense });
-    if (totals.balance > 0) data.push({ name: "Ahorro", value: totals.balance, color: CHART_COLORS.savings });
-    if (data.length === 0) return [{ name: "Sin datos", value: 1, color: CHART_COLORS.neutral }];
-    return data;
-  }, [totals]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -454,15 +406,50 @@ export default function App() {
     return m;
   }, [safeMonthData.items]);
 
-  return (
-    <div className="min-h-screen text-slate-900 dark:text-slate-100">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(1200px_680px_at_0%_0%,rgba(14,116,144,0.18),transparent_58%),radial-gradient(900px_560px_at_100%_5%,rgba(15,23,42,0.08),transparent_58%)] dark:bg-[radial-gradient(1100px_680px_at_5%_0%,rgba(8,145,178,0.24),transparent_60%),radial-gradient(900px_580px_at_95%_10%,rgba(2,6,23,0.42),transparent_56%)]" />
+  // Comparación entre meses - últimos 6 meses
+  const monthComparison = useMemo(() => {
+    const allMonths = Object.keys(db.months || {}).sort().reverse();
+    const last6Months = allMonths.slice(0, 6).reverse();
+    
+    return last6Months.map(monthKey => {
+      const data = db.months[monthKey];
+      const items = data?.items || [];
+      
+      let income = 0;
+      let expense = 0;
+      
+      for (const it of items) {
+        if (it.kind === "income") income += Number(it.amount) || 0;
+        else expense += Number(it.amount) || 0;
+      }
+      
+      return {
+        month: monthKey,
+        label: monthLabel(monthKey).split(' ')[0], // Solo el mes
+        income,
+        expense,
+        balance: income - expense,
+      };
+    });
+  }, [db.months]);
 
+  // Calcular tendencia del balance
+  const balanceTrend = useMemo(() => {
+    if (monthComparison.length < 2) return null;
+    const current = monthComparison[monthComparison.length - 1].balance;
+    const previous = monthComparison[monthComparison.length - 2].balance;
+    const diff = current - previous;
+    const percentChange = previous !== 0 ? Math.round((diff / Math.abs(previous)) * 100) : 0;
+    return { diff, percentChange, isPositive: diff >= 0 };
+  }, [monthComparison]);
+
+  return (
+    <div className="min-h-screen text-slate-900 dark:text-slate-100" style={{background: 'radial-gradient(1200px 700px at -5% -15%, rgba(165, 243, 252, 0.18) 0%, transparent 58%), radial-gradient(980px 560px at 110% 20%, rgba(219, 234, 254, 0.08) 0%, transparent 55%), #edf2f7'}}>
       <div className="relative mx-auto w-full max-w-[1600px] px-4 py-5 lg:px-8">
-        <header className="mb-4 rounded-3xl border border-slate-200/80 bg-white/92 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/75">
+        <header className="mb-4 rounded-3xl border border-slate-200/80 bg-white/92 p-4 shadow-lg backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/75">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-cyan-700 text-white shadow-[0_10px_24px_rgba(2,6,23,0.3)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-cyan-700 text-white shadow-lg">
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
@@ -472,10 +459,10 @@ export default function App() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="soft" onClick={() => exportJSON(db)} className="px-3 sm:px-4" title="Exportar respaldo">
+              <button onClick={() => exportJSON(db)} className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-100 dark:bg-slate-800/85 dark:ring-slate-700 dark:hover:bg-slate-700">
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Exportar</span>
-              </Button>
+              </button>
 
               <input
                 ref={fileInputRef}
@@ -488,20 +475,20 @@ export default function App() {
                   e.target.value = "";
                 }}
               />
-              <Button variant="soft" onClick={() => fileInputRef.current?.click()} className="px-3 sm:px-4" title="Importar respaldo">
+              <button onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-100 dark:bg-slate-800/85 dark:ring-slate-700 dark:hover:bg-slate-700">
                 <Upload className="h-4 w-4" />
                 <span className="hidden sm:inline">Importar</span>
-              </Button>
+              </button>
 
-              <Button variant="soft" onClick={() => setDarkMode((v) => !v)} className="px-3 sm:px-4" title="Cambiar tema">
+              <button onClick={() => setDarkMode((v) => !v)} className="inline-flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold ring-1 ring-slate-300 hover:bg-slate-100 dark:bg-slate-800/85 dark:ring-slate-700 dark:hover:bg-slate-700">
                 {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 <span className="hidden sm:inline">{darkMode ? "Claro" : "Oscuro"}</span>
-              </Button>
+              </button>
             </div>
           </div>
 
           <div className="mt-4 grid gap-3 lg:grid-cols-12">
-            <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-800 p-4 text-white shadow-[0_20px_45px_rgba(3,7,18,0.28)] lg:col-span-7">
+            <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-800 p-4 text-white shadow-xl lg:col-span-7">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100/90">Mes activo</p>
@@ -515,7 +502,8 @@ export default function App() {
                     type="month"
                     value={month}
                     onChange={(e) => setMonth(e.target.value)}
-                    className="bg-transparent text-white outline-none [color-scheme:dark]"
+                    className="bg-transparent text-white outline-none"
+                    style={{colorScheme: 'dark'}}
                   />
                 </label>
               </div>
@@ -561,10 +549,145 @@ export default function App() {
           </div>
         </header>
 
-        <div className="grid items-start gap-4 lg:grid-cols-12 lg:h-[calc(100vh-340px)]">
-          <div className="lg:col-span-5 lg:h-full min-h-0">
-            <div className="space-y-4 lg:h-full lg:overflow-auto lg:pr-2">
-              <SmallCard className="p-4">
+        {/* Comparación entre meses */}
+        {monthComparison.length > 1 && (
+          <div className="mb-4 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/78">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Evolución financiera</p>
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Comparación entre meses</h2>
+              </div>
+              {balanceTrend && (
+                <div className={`flex items-center gap-2 rounded-2xl px-4 py-2 ${
+                  balanceTrend.isPositive 
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' 
+                    : 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400'
+                }`}>
+                  {balanceTrend.isPositive ? (
+                    <TrendingUp className="h-5 w-5" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5" />
+                  )}
+                  <div className="text-right">
+                    <div className="text-xs font-semibold">vs mes anterior</div>
+                    <div className="text-lg font-extrabold">
+                      {balanceTrend.isPositive ? '+' : ''}{eur(balanceTrend.diff)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gráfico de barras simple */}
+            <div className="space-y-4">
+              {monthComparison.map((monthData, idx) => {
+                const maxValue = Math.max(...monthComparison.map(m => Math.max(m.income, m.expense)));
+                const incomeWidth = maxValue > 0 ? (monthData.income / maxValue) * 100 : 0;
+                const expenseWidth = maxValue > 0 ? (monthData.expense / maxValue) * 100 : 0;
+                const isCurrentMonth = monthData.month === month;
+
+                return (
+                  <div key={monthData.month} className={`rounded-2xl border p-4 transition-all ${
+                    isCurrentMonth 
+                      ? 'border-cyan-300 bg-cyan-50/50 dark:border-cyan-700 dark:bg-cyan-900/20' 
+                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          {monthData.label}
+                        </span>
+                        {isCurrentMonth && (
+                          <span className="rounded-full bg-cyan-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                            Actual
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-semibold">
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          ↑ {eur(monthData.income)}
+                        </span>
+                        <span className="text-rose-600 dark:text-rose-400">
+                          ↓ {eur(monthData.expense)}
+                        </span>
+                        <span className={`font-extrabold ${
+                          monthData.balance >= 0 
+                            ? 'text-emerald-700 dark:text-emerald-400' 
+                            : 'text-rose-700 dark:text-rose-400'
+                        }`}>
+                          = {eur(monthData.balance)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Barras de progreso */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 w-16">
+                          Ingreso
+                        </span>
+                        <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+                            style={{ width: `${incomeWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 w-16">
+                          Gasto
+                        </span>
+                        <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all duration-500"
+                            style={{ width: `${expenseWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Resumen de tendencias */}
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  Promedio ingresos
+                </div>
+                <div className="mt-1 text-lg font-extrabold text-emerald-700 dark:text-emerald-400">
+                  {eur(monthComparison.reduce((sum, m) => sum + m.income, 0) / monthComparison.length)}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  Promedio gastos
+                </div>
+                <div className="mt-1 text-lg font-extrabold text-rose-700 dark:text-rose-400">
+                  {eur(monthComparison.reduce((sum, m) => sum + m.expense, 0) / monthComparison.length)}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  Promedio balance
+                </div>
+                <div className={`mt-1 text-lg font-extrabold ${
+                  (monthComparison.reduce((sum, m) => sum + m.balance, 0) / monthComparison.length) >= 0
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-rose-700 dark:text-rose-400'
+                }`}>
+                  {eur(monthComparison.reduce((sum, m) => sum + m.balance, 0) / monthComparison.length)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid items-start gap-4 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/78">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Nuevo movimiento</p>
@@ -576,22 +699,61 @@ export default function App() {
                 <div className="mt-4 space-y-4">
                   <div>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Paso 1 | Tipo</p>
-                    <Segmented value={kind} onChange={setKind} />
+                    <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1 ring-1 ring-slate-300 dark:bg-slate-800/80 dark:ring-slate-700">
+                      <button
+                        className={`rounded-2xl px-3 py-2 text-sm font-semibold transition-all ${
+                          kind === "expense"
+                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-700 text-white shadow-lg"
+                            : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        }`}
+                        onClick={() => setKind("expense")}
+                        type="button"
+                      >
+                        Gasto
+                      </button>
+                      <button
+                        className={`rounded-2xl px-3 py-2 text-sm font-semibold transition-all ${
+                          kind === "income"
+                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-700 text-white shadow-lg"
+                            : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        }`}
+                        onClick={() => setKind("income")}
+                        type="button"
+                      >
+                        Ingreso
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Paso 2 | Detalles</p>
                     </div>
-                    <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado" />
-                    <Input
-                      label="Importe"
-                      value={amount}
-                      onChange={setAmount}
-                      placeholder="Ej: 25.50"
-                      type="number"
-                      right={<span className="text-sm font-extrabold text-slate-500">EUR</span>}
-                    />
+                    <label className="block">
+                      <div className="mb-1 text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">Nombre</div>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Ej: Supermercado"
+                        className="w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-3 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-600 dark:focus:ring-cyan-900/35"
+                      />
+                    </label>
+                    <label className="block">
+                      <div className="mb-1 text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300">Importe</div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="Ej: 25.50"
+                          className="w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-3 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-cyan-600 dark:focus:ring-cyan-900/35"
+                        />
+                        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                          <span className="text-sm font-extrabold text-slate-500">EUR</span>
+                        </div>
+                      </div>
+                    </label>
                   </div>
 
                   <div>
@@ -622,14 +784,14 @@ export default function App() {
                     </div>
                   </div>
 
-                  <Button onClick={addItem} className="w-full py-3" disabled={!canAddMovement}>
+                  <button onClick={addItem} disabled={!canAddMovement} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-700 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-50 dark:from-slate-700 dark:via-slate-700 dark:to-cyan-600">
                     <Plus className="h-4 w-4" />
                     Guardar movimiento
-                  </Button>
+                  </button>
                 </div>
-              </SmallCard>
+              </div>
 
-              <SmallCard className="p-4">
+              <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/78">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Presupuesto mensual</p>
@@ -661,114 +823,99 @@ export default function App() {
                     />
                   ))}
                 </div>
-              </SmallCard>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-7 lg:h-full lg:overflow-hidden min-h-0">
-            <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden min-h-0">
-              <ChartCard
-                pieData={pieData}
-                totals={totals}
-                balanceAccent={balanceAccent}
-                chartView={chartView}
-                setChartView={setChartView}
-                expensesByCategory={expensesByCategory}
-                eur={eur}
-                neutralColor={CHART_COLORS.neutral}
-              />
+          <div className="lg:col-span-7">
+            <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/78">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Movimientos</p>
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Registro del mes <span className="text-slate-500 dark:text-slate-300">({filteredItems.length})</span>
+                  </h2>
+                </div>
 
-              <SmallCard className="p-4 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden min-h-0">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Movimientos</p>
-                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-                      Registro del mes <span className="text-slate-500 dark:text-slate-300">({filteredItems.length})</span>
-                    </h2>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
+                    <input
+                      placeholder="Buscar por nombre o categoria"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="w-full bg-transparent text-sm font-semibold outline-none text-slate-900 placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-400"
+                    />
+                    <Search className="h-4 w-4 text-slate-400" />
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="relative flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
-                      <input
-                        placeholder="Buscar por nombre o categoria"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="w-full bg-transparent text-sm font-semibold outline-none text-slate-900 placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-400"
-                      />
-                      <Search className="h-4 w-4 text-slate-400" />
-                    </div>
+                  <select
+                    value={filterKind}
+                    onChange={(e) => setFilterKind(e.target.value)}
+                    className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold outline-none dark:border-slate-700 dark:bg-slate-900/70 dark:text-white"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="income">Ingresos</option>
+                    <option value="expense">Gastos</option>
+                  </select>
+                </div>
+              </div>
 
-                    <select
-                      value={filterKind}
-                      onChange={(e) => setFilterKind(e.target.value)}
-                      className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold outline-none dark:border-slate-700 dark:bg-slate-900/70 dark:text-white"
+              <div className="mt-3 space-y-2">
+                {filteredItems.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                    No hay movimientos para los filtros actuales.
+                  </div>
+                ) : (
+                  filteredItems.map((it) => (
+                    <div
+                      key={it.id}
+                      className="flex items-start justify-between rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/60"
                     >
-                      <option value="all">Todos</option>
-                      <option value="income">Ingresos</option>
-                      <option value="expense">Gastos</option>
-                    </select>
-                  </div>
-                </div>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span
+                          className={`mt-2 inline-flex h-2.5 w-2.5 rounded-full ${
+                            it.kind === "income" ? "bg-emerald-500" : "bg-rose-500"
+                          }`}
+                        />
 
-                <div className="mt-3 space-y-2 lg:flex-1 lg:overflow-auto lg:pr-2 min-h-0">
-                  <AnimatePresence>
-                    {filteredItems.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-                        No hay movimientos para los filtros actuales.
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{it.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-cyan-50/95 text-slate-800 ring-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-100 dark:ring-cyan-500/30">
+                              <span className="text-[11px] leading-none text-cyan-700 dark:text-cyan-200">{CATEGORY_CODES[it.category || "Otros"]}</span>
+                              {it.category || "Otros"}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              {it.kind === "income" ? "Ingreso" : "Gasto"}
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
+                              {new Date(it.createdAt).toLocaleString("es-ES")}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      filteredItems.map((it) => (
-                        <motion.div
-                          key={it.id}
-                          initial={{ opacity: 0, y: -6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 6 }}
-                          className="flex items-start justify-between rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/60"
+
+                      <div className="ml-3 flex items-center gap-3">
+                        <div
+                          className={`whitespace-nowrap text-sm font-extrabold ${
+                            it.kind === "income" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
+                          }`}
                         >
-                          <div className="flex min-w-0 items-start gap-3">
-                            <span
-                              className={`mt-2 inline-flex h-2.5 w-2.5 rounded-full ${
-                                it.kind === "income" ? "bg-emerald-500" : "bg-rose-500"
-                              }`}
-                            />
-
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{it.name}</div>
-                              <div className="mt-1 flex flex-wrap items-center gap-2">
-                                <Badge label={it.category || "Otros"} emoji={CATEGORY_CODES[it.category || "Otros"]} />
-                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                  {it.kind === "income" ? "Ingreso" : "Gasto"}
-                                </span>
-                                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
-                                  {new Date(it.createdAt).toLocaleString("es-ES")}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="ml-3 flex items-center gap-3">
-                            <div
-                              className={`whitespace-nowrap text-sm font-extrabold ${
-                                it.kind === "income" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
-                              }`}
-                            >
-                              {it.kind === "income" ? "+" : "-"} {eur(it.amount)}
-                            </div>
-                            <button
-                              onClick={() => removeItem(it.id)}
-                              className="inline-flex items-center justify-center rounded-2xl bg-slate-100 p-2 text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700"
-                              type="button"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </motion.div>
-                      ))
-                    )}
-                  </AnimatePresence>
-                </div>
-              </SmallCard>
+                          {it.kind === "income" ? "+" : "-"} {eur(it.amount)}
+                        </div>
+                        <button
+                          onClick={() => removeItem(it.id)}
+                          className="inline-flex items-center justify-center rounded-2xl bg-slate-100 p-2 text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700"
+                          type="button"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
