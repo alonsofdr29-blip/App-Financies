@@ -1,6 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./index.css";
-import { Plus, Trash2, Wallet, Download, Upload, Search, ArrowUpRight, ArrowDownRight, CalendarDays } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Wallet,
+  Download,
+  Upload,
+  Search,
+  ArrowUpRight,
+  ArrowDownRight,
+  CalendarDays,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import SmallCard from "./components/ui/SmallCard";
@@ -128,14 +140,7 @@ function BudgetRow({ name, code, spent, budget, onChange }) {
   const pct = b > 0 ? Math.min(100, Math.round((s / b) * 100)) : 0;
   const remaining = b - s;
 
-  const bar =
-    b <= 0
-      ? "bg-slate-200 dark:bg-slate-700"
-      : pct < 70
-      ? "bg-emerald-500"
-      : pct < 90
-      ? "bg-amber-500"
-      : "bg-rose-500";
+  const bar = b <= 0 ? "bg-slate-200 dark:bg-slate-700" : pct < 70 ? "bg-emerald-500" : pct < 90 ? "bg-amber-500" : "bg-rose-500";
 
   return (
     <div className="rounded-2xl border border-slate-200/90 bg-white/80 p-3 dark:border-slate-700 dark:bg-slate-900/75">
@@ -152,7 +157,7 @@ function BudgetRow({ name, code, spent, budget, onChange }) {
             {b > 0 ? (
               <>
                 {" "}
-                | Presupuesto: <span className="font-extrabold">{eur(b)}</span>
+                | Limite: <span className="font-extrabold">{eur(b)}</span>
               </>
             ) : null}
           </div>
@@ -187,6 +192,28 @@ function BudgetRow({ name, code, spent, budget, onChange }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatTile({ label, value, hint, icon: Icon, tone = "neutral" }) {
+  const tones = {
+    neutral: "text-slate-900 dark:text-slate-100",
+    positive: "text-emerald-700 dark:text-emerald-400",
+    negative: "text-rose-700 dark:text-rose-400",
+    accent: "text-cyan-700 dark:text-cyan-400",
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200/85 bg-white/95 p-3 dark:border-slate-700 dark:bg-slate-800/65">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">{label}</p>
+        <div className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-700/80 dark:text-slate-200">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <p className={`mt-2 text-xl font-extrabold ${tones[tone]}`}>{value}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">{hint}</p>
     </div>
   );
 }
@@ -258,12 +285,43 @@ export default function App() {
     return { income, expense, balance };
   }, [safeMonthData.items]);
 
+  const expenseItemsCount = useMemo(
+    () => safeMonthData.items.filter((it) => it.kind === "expense").length,
+    [safeMonthData.items]
+  );
+
+  const averageExpense = expenseItemsCount > 0 ? totals.expense / expenseItemsCount : 0;
   const balanceAccent =
     totals.balance > 0
       ? "text-emerald-700 dark:text-emerald-400"
       : totals.balance < 0
       ? "text-rose-700 dark:text-rose-400"
       : "text-slate-900 dark:text-slate-100";
+
+  const budgetTotal = Number(safeMonthData.budgetTotal || 0);
+  const budgetProgress = budgetTotal > 0 ? Math.min(100, Math.round((totals.expense / budgetTotal) * 100)) : 0;
+  const budgetRemaining = budgetTotal - totals.expense;
+  const budgetStatus =
+    budgetTotal <= 0
+      ? "Aun no has definido un presupuesto mensual."
+      : budgetRemaining >= 0
+      ? `Te quedan ${eur(budgetRemaining)} de presupuesto.`
+      : `Llevas ${eur(Math.abs(budgetRemaining))} por encima del presupuesto.`;
+
+  const savingsRate = totals.income > 0 ? Math.round((totals.balance / totals.income) * 100) : 0;
+  const savingsSummary =
+    totals.income <= 0
+      ? "Agrega ingresos para calcular tu tasa de ahorro."
+      : savingsRate >= 20
+      ? "Buen ritmo de ahorro para este mes."
+      : savingsRate >= 0
+      ? "Puedes mejorar el ahorro reduciendo gasto variable."
+      : "Tus gastos superan tus ingresos este mes.";
+
+  const lastMovementDate =
+    safeMonthData.items[0]?.createdAt != null
+      ? new Date(safeMonthData.items[0].createdAt).toLocaleDateString("es-ES")
+      : "Sin movimientos";
 
   const expensesByCategory = useMemo(() => {
     const map = {};
@@ -308,6 +366,8 @@ export default function App() {
       return passKind && passQuery;
     });
   }, [safeMonthData.items, query, filterKind]);
+
+  const canAddMovement = name.trim().length > 0 && clampNumber(amount) > 0;
 
   function addItem() {
     const a = clampNumber(amount);
@@ -399,19 +459,19 @@ export default function App() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(1200px_680px_at_0%_0%,rgba(14,116,144,0.18),transparent_58%),radial-gradient(900px_560px_at_100%_5%,rgba(15,23,42,0.08),transparent_58%)] dark:bg-[radial-gradient(1100px_680px_at_5%_0%,rgba(8,145,178,0.24),transparent_60%),radial-gradient(900px_580px_at_95%_10%,rgba(2,6,23,0.42),transparent_56%)]" />
 
       <div className="relative mx-auto w-full max-w-[1600px] px-4 py-5 lg:px-8">
-        <header className="mb-4 rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/75">
+        <header className="mb-4 rounded-3xl border border-slate-200/80 bg-white/92 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/75">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-cyan-700 text-white shadow-[0_10px_24px_rgba(2,6,23,0.3)]">
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Control mensual</p>
-                <h1 className="text-xl font-extrabold tracking-tight">App Finanzas</h1>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Panel financiero</p>
+                <h1 className="text-xl font-extrabold tracking-tight">Finanzas Personales</h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="soft" onClick={() => exportJSON(db)} className="px-3 sm:px-4" title="Exportar respaldo">
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Exportar</span>
@@ -434,97 +494,108 @@ export default function App() {
               </Button>
 
               <Button variant="soft" onClick={() => setDarkMode((v) => !v)} className="px-3 sm:px-4" title="Cambiar tema">
-                {darkMode ? "Modo claro" : "Modo oscuro"}
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                <span className="hidden sm:inline">{darkMode ? "Claro" : "Oscuro"}</span>
               </Button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Ingresos</p>
-              <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400">{eur(totals.income)}</p>
+          <div className="mt-4 grid gap-3 lg:grid-cols-12">
+            <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-800 p-4 text-white shadow-[0_20px_45px_rgba(3,7,18,0.28)] lg:col-span-7">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100/90">Mes activo</p>
+                  <h2 className="text-2xl font-extrabold">{monthLabel(month)}</h2>
+                  <p className="mt-1 text-xs font-semibold text-cyan-100/90">{savingsSummary}</p>
+                </div>
+
+                <label className="inline-flex items-center gap-2 rounded-2xl border border-cyan-200/30 bg-white/10 px-3 py-2 text-sm font-semibold backdrop-blur">
+                  <CalendarDays className="h-4 w-4 text-cyan-100" />
+                  <input
+                    type="month"
+                    value={month}
+                    onChange={(e) => setMonth(e.target.value)}
+                    className="bg-transparent text-white outline-none [color-scheme:dark]"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/90">Movimientos</p>
+                  <p className="text-lg font-extrabold">{safeMonthData.items.length}</p>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/90">Ultimo registro</p>
+                  <p className="text-lg font-extrabold">{lastMovementDate}</p>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/90">Tasa ahorro</p>
+                  <p className="text-lg font-extrabold">{totals.income > 0 ? `${savingsRate}%` : "--"}</p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-cyan-100/90">
+                  <span>Uso de presupuesto</span>
+                  <span>{budgetTotal > 0 ? `${budgetProgress}%` : "Sin objetivo"}</span>
+                </div>
+                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className={`h-full transition-all ${
+                      budgetTotal <= 0 ? "bg-white/20" : budgetProgress < 70 ? "bg-emerald-400" : budgetProgress < 90 ? "bg-amber-400" : "bg-rose-400"
+                    }`}
+                    style={{ width: `${budgetProgress}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-cyan-100/90">{budgetStatus}</p>
+              </div>
             </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Gastos</p>
-              <p className="text-lg font-extrabold text-rose-700 dark:text-rose-400">{eur(totals.expense)}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Balance</p>
-              <p className={`text-lg font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</p>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5">
+              <StatTile label="Ingresos" value={eur(totals.income)} hint="Entradas del mes" icon={ArrowUpRight} tone="positive" />
+              <StatTile label="Gastos" value={eur(totals.expense)} hint="Salidas del mes" icon={ArrowDownRight} tone="negative" />
+              <StatTile label="Balance" value={eur(totals.balance)} hint="Ingresos menos gastos" icon={Wallet} tone={totals.balance >= 0 ? "positive" : "negative"} />
+              <StatTile label="Gasto medio" value={eur(averageExpense)} hint="Promedio por movimiento de gasto" icon={CalendarDays} tone="accent" />
             </div>
           </div>
         </header>
 
-        <div className="grid items-start gap-4 lg:grid-cols-12 lg:h-[calc(100vh-220px)]">
+        <div className="grid items-start gap-4 lg:grid-cols-12 lg:h-[calc(100vh-340px)]">
           <div className="lg:col-span-5 lg:h-full min-h-0">
             <div className="space-y-4 lg:h-full lg:overflow-auto lg:pr-2">
               <SmallCard className="p-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Periodo activo</p>
-                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">{monthLabel(month)}</h2>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Nuevo movimiento</p>
+                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Registra un ingreso o gasto</h2>
                   </div>
-                  <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-300/80 bg-white px-3 py-2 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900/70">
-                    <CalendarDays className="h-4 w-4 text-slate-500 dark:text-slate-300" />
-                    <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-transparent outline-none" />
-                  </label>
+                  <span className="rounded-full bg-cyan-50 px-2 py-1 text-xs font-bold text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-100">Paso 1-3</span>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <SmallCard className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">Ingresos</p>
-                        <p className="mt-1 text-xl font-extrabold">{eur(totals.income)}</p>
-                      </div>
-                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
-                        <ArrowUpRight className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-                      </div>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Paso 1 | Tipo</p>
+                    <Segmented value={kind} onChange={setKind} />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Paso 2 | Detalles</p>
                     </div>
-                  </SmallCard>
-
-                  <SmallCard className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">Gastos</p>
-                        <p className="mt-1 text-xl font-extrabold">{eur(totals.expense)}</p>
-                      </div>
-                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-50 dark:bg-rose-500/10">
-                        <ArrowDownRight className="h-5 w-5 text-rose-700 dark:text-rose-300" />
-                      </div>
-                    </div>
-                  </SmallCard>
-
-                  <SmallCard className="col-span-2 p-3">
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">Balance neto</p>
-                    <p className={`mt-1 text-2xl font-extrabold ${balanceAccent}`}>{eur(totals.balance)}</p>
-                  </SmallCard>
-                </div>
-              </SmallCard>
-
-              <SmallCard className="p-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Nuevo movimiento</p>
-                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Carga rapida</h2>
-                </div>
-
-                <div className="mt-3">
-                  <Segmented value={kind} onChange={setKind} />
-                </div>
-
-                <div className="mt-3 grid gap-3">
-                  <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado" />
-                  <Input
-                    label="Importe"
-                    value={amount}
-                    onChange={setAmount}
-                    placeholder="Ej: 25.50"
-                    type="number"
-                    right={<span className="text-sm font-extrabold text-slate-500">EUR</span>}
-                  />
+                    <Input label="Nombre" value={name} onChange={setName} placeholder="Ej: Supermercado" />
+                    <Input
+                      label="Importe"
+                      value={amount}
+                      onChange={setAmount}
+                      placeholder="Ej: 25.50"
+                      type="number"
+                      right={<span className="text-sm font-extrabold text-slate-500">EUR</span>}
+                    />
+                  </div>
 
                   <div>
-                    <div className="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Categoria</div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Paso 3 | Categoria</p>
                     <div className="flex flex-wrap gap-2">
                       {(SUGGESTED_CATEGORIES[kind] || []).map((c) => (
                         <button
@@ -545,15 +616,15 @@ export default function App() {
                       <input
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        placeholder="Escribe otra categoria"
+                        placeholder="Escribe otra categoria si la necesitas"
                         className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:focus:border-cyan-600 dark:focus:ring-cyan-900/35"
                       />
                     </div>
                   </div>
 
-                  <Button onClick={addItem} className="py-3">
+                  <Button onClick={addItem} className="w-full py-3" disabled={!canAddMovement}>
                     <Plus className="h-4 w-4" />
-                    Anadir {kind === "income" ? "ingreso" : "gasto"}
+                    Guardar movimiento
                   </Button>
                 </div>
               </SmallCard>
@@ -561,14 +632,14 @@ export default function App() {
               <SmallCard className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Presupuesto</p>
-                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Plan vs real</h2>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Presupuesto mensual</p>
+                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Control por categorias</h2>
                   </div>
-                  <div className="text-sm font-extrabold">{eur(safeMonthData.budgetTotal || 0)}</div>
+                  <div className="text-sm font-extrabold">{eur(budgetTotal)}</div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Total del mes</div>
+                  <div className="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Limite total del mes</div>
                   <input
                     type="number"
                     value={String(safeMonthData.budgetTotal ?? "")}
@@ -611,7 +682,9 @@ export default function App() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Movimientos</p>
-                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Registro del mes</h2>
+                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      Registro del mes <span className="text-slate-500 dark:text-slate-300">({filteredItems.length})</span>
+                    </h2>
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -640,7 +713,7 @@ export default function App() {
                 <div className="mt-3 space-y-2 lg:flex-1 lg:overflow-auto lg:pr-2 min-h-0">
                   <AnimatePresence>
                     {filteredItems.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
                         No hay movimientos para los filtros actuales.
                       </div>
                     ) : (
@@ -650,26 +723,42 @@ export default function App() {
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 6 }}
-                          className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/60"
+                          className="flex items-start justify-between rounded-3xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/60"
                         >
-                          <div className="flex items-center gap-3">
-                            <Badge label={it.category || "Otros"} emoji={CATEGORY_CODES[it.category || "Otros"]} />
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span
+                              className={`mt-2 inline-flex h-2.5 w-2.5 rounded-full ${
+                                it.kind === "income" ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            />
+
                             <div className="min-w-0">
                               <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{it.name}</div>
-                              <div className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
-                                {new Date(it.createdAt).toLocaleString("es-ES")}
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <Badge label={it.category || "Otros"} emoji={CATEGORY_CODES[it.category || "Otros"]} />
+                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                  {it.kind === "income" ? "Ingreso" : "Gasto"}
+                                </span>
+                                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
+                                  {new Date(it.createdAt).toLocaleString("es-ES")}
+                                </span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className={"font-extrabold " + (it.kind === "income" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
-                              {eur(it.amount)}
+                          <div className="ml-3 flex items-center gap-3">
+                            <div
+                              className={`whitespace-nowrap text-sm font-extrabold ${
+                                it.kind === "income" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
+                              }`}
+                            >
+                              {it.kind === "income" ? "+" : "-"} {eur(it.amount)}
                             </div>
                             <button
                               onClick={() => removeItem(it.id)}
                               className="inline-flex items-center justify-center rounded-2xl bg-slate-100 p-2 text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700"
                               type="button"
+                              title="Eliminar"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
