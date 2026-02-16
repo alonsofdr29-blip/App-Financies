@@ -2,7 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+const REPO_NAME = "App-Financies";
+const isGithubActions = process.env.GITHUB_ACTIONS === "true";
+
 export default defineConfig({
+  // GitHub Pages serves the app under /<repo>/ in CI builds.
+  base: isGithubActions ? `/${REPO_NAME}/` : "/",
   plugins: [
     react(),
     VitePWA({
