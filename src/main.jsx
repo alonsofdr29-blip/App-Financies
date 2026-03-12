@@ -15,3 +15,4 @@ if ("serviceWorker" in navigator) {
     registrations.forEach((registration) => registration.unregister());
   });
 }
+

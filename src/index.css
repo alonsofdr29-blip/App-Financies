@@ -1,61 +1,131 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  --app-bg: #edf2f7;
-  --app-bg-glow-a: #a5f3fc;
-  --app-bg-glow-b: #dbeafe;
-  --app-text: #0f172a;
-  --scrollbar: #94a3b8;
-  --scrollbar-dark: #3f4b63;
+  color-scheme: dark;
+  font-family: "Space Grotesk", sans-serif;
+  background: #040b16;
 }
 
 * {
   box-sizing: border-box;
-  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 700px at -5% -15%, var(--app-bg-glow-a) 0%, transparent 58%),
-    radial-gradient(980px 560px at 110% 20%, var(--app-bg-glow-b) 0%, transparent 55%),
-    var(--app-bg);
-  color: var(--app-text);
-  line-height: 1.4;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: radial-gradient(circle at top, rgba(14, 165, 233, 0.18), transparent 28%), radial-gradient(circle at 80% 10%, rgba(56, 189, 248, 0.14), transparent 22%), linear-gradient(180deg, #040b16 0%, #08111f 55%, #091423 100%);
+  color: #e5f3ff;
+  font-family: "Space Grotesk", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  background:
-    radial-gradient(1200px 700px at -5% -10%, rgba(14, 116, 144, 0.24) 0%, transparent 58%),
-    radial-gradient(900px 600px at 100% 10%, rgba(15, 23, 42, 0.45) 0%, transparent 58%),
-    #020617;
-  color: #e2e8f0;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 #root {
   min-height: 100vh;
 }
 
+::selection {
+  background: rgba(56, 189, 248, 0.35);
+  color: white;
+}
+
 ::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.75);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
+  background: rgba(56, 189, 248, 0.45);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-dark);
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 165, 233, 0.75);
   border: 2px solid transparent;
   background-clip: content-box;
+}
+
+
+.neo-theme .bg-white { background: rgba(7, 15, 28, 0.9) !important; }
+.neo-theme .bg-slate-50 { background: rgba(15, 23, 42, 0.74) !important; }
+.neo-theme .bg-slate-100 { background: rgba(18, 31, 54, 0.92) !important; }
+.neo-theme .bg-sky-50 { background: rgba(8, 47, 73, 0.5) !important; }
+.neo-theme .bg-sky-100 { background: rgba(14, 116, 144, 0.22) !important; }
+.neo-theme .border-slate-200 { border-color: rgba(56, 189, 248, 0.18) !important; }
+.neo-theme .border-slate-300 { border-color: rgba(56, 189, 248, 0.3) !important; }
+.neo-theme .border-sky-100 { border-color: rgba(56, 189, 248, 0.18) !important; }
+.neo-theme .border-sky-200 { border-color: rgba(56, 189, 248, 0.24) !important; }
+.neo-theme .border-sky-300 { border-color: rgba(56, 189, 248, 0.4) !important; }
+.neo-theme .text-slate-900 { color: #eff6ff !important; }
+.neo-theme .text-slate-800 { color: #dbeafe !important; }
+.neo-theme .text-slate-700 { color: #c3dcf5 !important; }
+.neo-theme .text-slate-600 { color: #9fbad6 !important; }
+.neo-theme .text-slate-500 { color: #7f9cbc !important; }
+.neo-theme .text-emerald-600 { color: #4ade80 !important; }
+.neo-theme .text-rose-600 { color: #fb7185 !important; }
+.neo-theme .shadow-sm { box-shadow: 0 12px 28px rgba(14, 165, 233, 0.18) !important; }
+.neo-theme .bg-emerald-50 { background: rgba(6, 95, 70, 0.22) !important; }
+.neo-theme .bg-rose-50 { background: rgba(136, 19, 55, 0.22) !important; }
+.neo-theme .bg-amber-50 { background: rgba(146, 64, 14, 0.22) !important; }
+.neo-theme .placeholder\:text-slate-400::placeholder { color: #6b8cb0 !important; }
+.neo-theme select,
+.neo-theme option,
+.neo-theme input,
+.neo-theme textarea { color-scheme: dark; }
+.neo-theme select option { background: #07111f; color: #eff6ff; }
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+    color: black;
+    height: auto;
+    overflow: visible;
+  }
+
+  .fixed,
+  button {
+    display: none !important;
+  }
+
+  section,
+  header {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: white !important;
+    color: black !important;
+  }
 }

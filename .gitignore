@@ -145,3 +145,11 @@ dist
 # End of https://www.toptal.com/developers/gitignore/api/node
 .DS_Store
 .DS_Store
+__vercel_repo/
+__vercel_repo_59/
+__vercel_repo.zip
+__vercel_repo_59.zip
+dev-server.log
+dev-server.err.log
+vite-dev.log
+vite-dev.err.log
